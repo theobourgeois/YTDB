@@ -22,7 +22,7 @@ export function getPool(connectionString: string): Pool {
       connectionString,
       max: 4,
       idleTimeoutMillis: 30_000,
-      application_name: "db-studio",
+      application_name: "ytdb",
       statement_timeout: STATEMENT_TIMEOUT_MS,
       query_timeout: STATEMENT_TIMEOUT_MS,
       ssl: needsSsl(connectionString) ? { rejectUnauthorized: false } : undefined,

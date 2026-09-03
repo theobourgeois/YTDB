@@ -6,6 +6,9 @@ import {
   isThemeId,
   type ThemeId,
 } from "../themes";
+import { migrateLegacyStorage } from "./storage-migration";
+
+migrateLegacyStorage("db-studio:theme", THEME_STORAGE_KEY);
 
 type ThemeState = {
   theme: ThemeId;

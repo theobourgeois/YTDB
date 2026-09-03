@@ -7,6 +7,9 @@ type Handler<T> = (body: T) => Promise<unknown>;
 /** Parses a JSON body, runs the handler, and turns thrown errors into a JSON error response. */
 export function jsonHandler<T>(handler: Handler<T>) {
   return async (request: Request): Promise<Response> => {
+    if (process.env.VERCEL === "1") {
+      return Response.json({ error: "Database API is local-only" }, { status: 404 });
+    }
     let body: T;
     try {
       body = (await request.json()) as T;

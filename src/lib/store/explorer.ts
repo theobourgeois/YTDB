@@ -4,6 +4,10 @@ import type { Connection, Filter, Sort, TableRef } from "../types";
 import { tableKey } from "../types";
 import { randomId } from "../utils";
 import { useConnections } from "./connections";
+import { migrateLegacyStorage } from "./storage-migration";
+
+const STORAGE_KEY = "ytdb:explorer";
+migrateLegacyStorage("db-studio:explorer", STORAGE_KEY);
 
 export const DEFAULT_PAGE_SIZE = 50;
 
@@ -220,7 +224,7 @@ export const useExplorer = create<ExplorerState>()(
           return { browse, tables };
         }),
     }),
-    { name: "db-studio:explorer" },
+    { name: STORAGE_KEY },
   ),
 );
 

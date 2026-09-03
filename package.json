@@ -1,14 +1,38 @@
 {
-  "name": "db-studio",
+  "name": "ytdb",
   "version": "0.1.0",
-  "private": true,
+  "description": "A fast, local-first PostgreSQL browser.",
+  "homepage": "https://ytdb.theobourgeois.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/theobourgeois/YTDB.git"
+  },
+  "bugs": "https://github.com/theobourgeois/YTDB/issues",
+  "private": false,
+  "bin": {
+    "ytdb": "bin/ytdb.mjs"
+  },
+  "files": [
+    ".next/BUILD_ID",
+    ".next/*.json",
+    ".next/server",
+    ".next/static",
+    "bin",
+    "public"
+  ],
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "dev": "next dev --port 4371 --hostname 127.0.0.1",
     "dev:convex": "convex dev",
-    "setup:local": "node scripts/setup-local.mjs",
     "build": "next build",
     "start": "next start --port 4371 --hostname 127.0.0.1",
-    "lint": "eslint"
+    "lint": "eslint",
+    "prepack": "npm run build"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

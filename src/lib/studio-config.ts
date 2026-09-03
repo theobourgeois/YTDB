@@ -37,7 +37,7 @@ export function downloadStudioConfig(): void {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
-  anchor.download = "db-studio.json";
+  anchor.download = "ytdb.json";
   document.body.append(anchor);
   anchor.click();
   anchor.remove();
@@ -52,7 +52,7 @@ export function parseStudioConfig(text: string): StudioConfig {
     throw new Error("That file isn’t valid JSON.");
   }
   if (!isRecord(raw)) {
-    throw new Error("That file isn’t a DB Studio config.");
+    throw new Error("That file isn’t a YTDB config.");
   }
   if (raw.version !== STUDIO_CONFIG_VERSION) {
     throw new Error("That config file isn’t supported.");

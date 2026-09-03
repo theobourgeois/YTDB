@@ -3,6 +3,10 @@ import { persist } from "zustand/middleware";
 import { nextConnectionColor, resolveConnectionColor } from "../connection-colors";
 import type { Connection } from "../types";
 import { randomId } from "../utils";
+import { migrateLegacyStorage } from "./storage-migration";
+
+const STORAGE_KEY = "ytdb:connections";
+migrateLegacyStorage("db-studio:connections", STORAGE_KEY);
 
 type ConnectionsState = {
   connections: Connection[];
@@ -32,7 +36,7 @@ export const useConnections = create<ConnectionsState>()(
       remove: (id) =>
         set((state) => ({ connections: state.connections.filter((c) => c.id !== id) })),
     }),
-    { name: "db-studio:connections" },
+    { name: STORAGE_KEY },
   ),
 );
 

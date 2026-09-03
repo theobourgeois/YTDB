@@ -1,8 +1,8 @@
-# OpenDB
+# YTDB
 
 A fast, local-first PostgreSQL browser for exploring and editing databases without leaving the keyboard.
 
-![OpenDB browsing a fictional products table](public/screenshots/db-studio-explorer.png)
+![YTDB browsing a fictional products table](public/screenshots/ytdb-explorer.png)
 
 ## What it does
 
@@ -17,17 +17,17 @@ A fast, local-first PostgreSQL browser for exploring and editing databases witho
 - Import or export your workspace configuration
 - Choose from six built-in themes
 
-![OpenDB's new connection dialog](public/screenshots/db-studio-connection.png)
+![YTDB's new connection dialog](public/screenshots/ytdb-connection.png)
 
 ## Jump to any table
 
 Press <kbd>⌘</kbd>+<kbd>P</kbd> on macOS or <kbd>Ctrl</kbd>+<kbd>P</kbd> elsewhere to search across tables and saved connections. Type a table name to filter, then press <kbd>Enter</kbd> to open it.
 
-![OpenDB's Command P table palette filtering to products](public/screenshots/opendb-command-palette.png)
+![YTDB's Command P table palette filtering to products](public/screenshots/ytdb-command-palette.png)
 
 The screenshots use a disposable local database with fictional product and company names. No production data or credentials are included in this repository.
 
-## Run locally
+## Run YTDB
 
 ### Requirements
 
@@ -35,35 +35,32 @@ The screenshots use a disposable local database with fictional product and compa
 - npm
 - A PostgreSQL database you can reach from your machine
 
-Install dependencies and start the development server:
+Once the package is published, start YTDB without cloning the repository:
 
 ```bash
-npm install
-npm run dev
+npx ytdb
 ```
 
-Open [http://127.0.0.1:4371](http://127.0.0.1:4371), select **New**, and enter a name and PostgreSQL connection URL:
+The command starts an authenticated database bridge bound to `127.0.0.1` and opens
+[ytdb.theobourgeois.com](https://ytdb.theobourgeois.com). Select **New**, then enter a name and PostgreSQL connection URL:
 
 ```text
 postgresql://user:password@host:5432/database
 ```
 
-No environment variables are required for the current feature set. The Convex scaffold is optional and the UI still runs when `NEXT_PUBLIC_CONVEX_URL` is unset.
+The hosted UI talks directly to that loopback-only bridge. Its random session token is passed
+in a URL fragment, which is never sent to the hosted server. Closing the command stops access.
 
-### Optional friendly hostname on macOS
-
-The included setup script maps `http://local.dbstudio` to the development server. It updates `/etc/hosts` and installs a small launch daemon, so macOS will ask for an administrator password.
+To work on YTDB itself:
 
 ```bash
-npm run setup:local
+git clone https://github.com/theobourgeois/YTDB.git
+cd YTDB
+npm install
 npm run dev
 ```
 
-Open [http://local.dbstudio](http://local.dbstudio). To remove the hostname and launch daemon later:
-
-```bash
-npm run setup:local -- --undo
-```
+Open [http://127.0.0.1:4371](http://127.0.0.1:4371). No administrator-level hostname setup is required.
 
 ## Useful commands
 
@@ -72,16 +69,19 @@ npm run dev          # development server on 127.0.0.1:4371
 npm run build        # production build
 npm start            # serve the production build
 npm run lint         # ESLint
+npm pack --dry-run   # inspect the publishable npx package
 npm run dev:convex   # optional Convex development process
 ```
 
 ## Security model
 
-OpenDB is intended to run on your own machine, not as a public hosted service.
+The UI is hosted, but PostgreSQL access is performed by the loopback-only process started by `npx ytdb`.
 
-- Connection URLs are stored in your browser's `localStorage`.
-- Each database request sends the selected URL to your local Next.js server, which connects to PostgreSQL.
-- Exported OpenDB configuration files include connection URLs. Treat those files like passwords and never commit them.
+- Connection URLs are stored in browser `localStorage` for `ytdb.theobourgeois.com`.
+- Each database request goes directly from the hosted UI to `127.0.0.1`; the public deployment refuses database API requests.
+- The bridge accepts only the official UI origin and requests with its per-process random token.
+- A restrictive Content Security Policy blocks unapproved scripts and network destinations.
+- Exported YTDB configuration files include connection URLs. Treat those files like passwords and never commit them.
 - The app supports writes and row deletion. Use a read-only or least-privilege PostgreSQL role when you do not need editing.
 - `.env*` files remain ignored by Git, with only the blank `.env.example` template allowed into the repository.
 
@@ -100,7 +100,7 @@ src/
     db/                          server-only PostgreSQL access
     store/                       persisted browser state
   hooks/                         shared React hooks
-scripts/                         optional local.dbstudio setup
+bin/                             `npx ytdb` launcher
 convex/                          optional Convex scaffold
 ```
 

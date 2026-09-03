@@ -1,4 +1,4 @@
-export const THEME_STORAGE_KEY = "db-studio:theme";
+export const THEME_STORAGE_KEY = "ytdb:theme";
 export const DEFAULT_THEME_ID = "dark";
 
 export const THEMES = [
@@ -68,4 +68,4 @@ const LIGHT_THEME_IDS = THEMES.filter((theme) => theme.appearance === "light").m
 );
 
 /** Blocking script so the first paint matches the persisted theme. */
-export const THEME_INIT_SCRIPT = `(function(){try{var allowed=${JSON.stringify(THEME_IDS)};var light=${JSON.stringify(LIGHT_THEME_IDS)};var id=${JSON.stringify(DEFAULT_THEME_ID)};var raw=localStorage.getItem(${JSON.stringify(THEME_STORAGE_KEY)});if(raw){var parsed=JSON.parse(raw);var value=parsed&&parsed.state&&parsed.state.theme;if(typeof value==="string"&&allowed.indexOf(value)!==-1)id=value;}var root=document.documentElement;root.setAttribute("data-theme",id);root.classList.toggle("dark",light.indexOf(id)===-1);}catch(e){}})();`;
+export const THEME_INIT_SCRIPT = `(function(){try{var allowed=${JSON.stringify(THEME_IDS)};var light=${JSON.stringify(LIGHT_THEME_IDS)};var id=${JSON.stringify(DEFAULT_THEME_ID)};var raw=localStorage.getItem(${JSON.stringify(THEME_STORAGE_KEY)})||localStorage.getItem("db-studio:theme");if(raw){var parsed=JSON.parse(raw);var value=parsed&&parsed.state&&parsed.state.theme;if(typeof value==="string"&&allowed.indexOf(value)!==-1)id=value;}var root=document.documentElement;root.setAttribute("data-theme",id);root.classList.toggle("dark",light.indexOf(id)===-1);}catch(e){}})();`;

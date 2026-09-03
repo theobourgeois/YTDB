@@ -12,9 +12,10 @@ import type {
   TableInfo,
   TableRef,
 } from "./types";
+import { bridgeFetch } from "./bridge";
 
 async function post<T>(path: string, body: unknown, signal?: AbortSignal): Promise<T> {
-  const response = await fetch(path, {
+  const response = await bridgeFetch(path, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
