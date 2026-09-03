@@ -22,7 +22,7 @@ then add the exact CNAME record Vercel provides in Squarespace DNS:
 
 - Type: `CNAME`
 - Host: `ytdb`
-- Value: the project-specific Vercel CNAME target
+- Value: `364942a787be1930.vercel-dns-017.com`
 
 Do not change the domain's nameservers. Vercel provisions HTTPS after the record verifies.
 
