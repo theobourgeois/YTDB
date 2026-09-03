@@ -16,7 +16,7 @@ const hostedOrigin = "https://ytdb.theobourgeois.com";
 function usage() {
   console.log(`YTDB ${packageJson.version}
 
-Usage: npx ytdb [options]
+Usage: npx @theobourgeois/ytdb [options]
 
 Options:
   --port <number>  Local bridge port (default: ${defaultPort})

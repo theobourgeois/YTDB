@@ -1,6 +1,6 @@
 {
   "name": "@theobourgeois/ytdb",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A fast, local-first PostgreSQL browser.",
   "homepage": "https://ytdb.theobourgeois.com",
   "repository": {

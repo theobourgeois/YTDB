@@ -25,7 +25,7 @@ export function LocalBridgeGate({ children }: { children: ReactNode }) {
       <div className="max-w-lg space-y-4">
         <p className="font-mono text-xs tracking-[0.22em] text-muted-foreground">YTDB</p>
         <h1 className="text-2xl font-semibold tracking-tight">{status === "checking" ? "Connecting to YTDB…" : "Start the local YTDB bridge"}</h1>
-        {status !== "checking" && <><p className="text-sm leading-6 text-muted-foreground">Your database connection stays on this computer. Run the command below and use the browser tab it opens.</p><pre className="w-fit rounded-md border bg-muted px-4 py-3 font-mono text-sm">npx ytdb</pre>{status === "offline" && <p className="text-sm text-muted-foreground">This tab has an expired bridge session. Restart the command to create a new one.</p>}</>}
+        {status !== "checking" && <><p className="text-sm leading-6 text-muted-foreground">Your database connection stays on this computer. Run the command below and use the browser tab it opens.</p><pre className="w-fit rounded-md border bg-muted px-4 py-3 font-mono text-sm">npx @theobourgeois/ytdb</pre>{status === "offline" && <p className="text-sm text-muted-foreground">This tab has an expired bridge session. Restart the command to create a new one.</p>}</>}
       </div>
     </main>
   );

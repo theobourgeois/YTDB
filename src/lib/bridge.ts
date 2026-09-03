@@ -49,7 +49,7 @@ export function getBridgeConfig(): BridgeConfig | null {
 
 export async function bridgeFetch(path: string, init: RequestInit = {}): Promise<Response> {
   const config = getBridgeConfig();
-  if (isHostedUi() && !config) throw new Error("Start YTDB with `npx ytdb`, then use the browser tab it opens.");
+  if (isHostedUi() && !config) throw new Error("Start YTDB with `npx @theobourgeois/ytdb`, then use the browser tab it opens.");
   const headers = new Headers(init.headers);
   if (config) headers.set("Authorization", `Bearer ${config.token}`);
   const url = config ? new URL(path, config.origin) : path;
