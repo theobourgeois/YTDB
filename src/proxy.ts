@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import { resolveTrustedUiOrigins } from "../ytdb.config.mjs";
 
-const OFFICIAL_UI_ORIGIN = "https://ytdb.theobourgeois.com";
+// Resolved per request so the origin the CLI passes through the environment is
+// read at runtime rather than baked into the build.
+function isTrustedUiOrigin(origin: string): boolean {
+  return resolveTrustedUiOrigins().has(origin);
+}
 
 function corsHeaders(origin: string | null, request: NextRequest): Headers {
   const headers = new Headers({
@@ -9,7 +14,7 @@ function corsHeaders(origin: string | null, request: NextRequest): Headers {
     "Access-Control-Max-Age": "600",
     Vary: "Origin",
   });
-  if (origin === OFFICIAL_UI_ORIGIN) {
+  if (origin && isTrustedUiOrigin(origin)) {
     headers.set("Access-Control-Allow-Origin", origin);
   }
   if (request.headers.get("access-control-request-private-network") === "true") {
@@ -28,7 +33,7 @@ export function proxy(request: NextRequest): NextResponse {
 
   const origin = request.headers.get("origin");
   const sameOrigin = origin === request.nextUrl.origin;
-  if (origin && !sameOrigin && origin !== OFFICIAL_UI_ORIGIN) {
+  if (origin && !sameOrigin && !isTrustedUiOrigin(origin)) {
     return NextResponse.json({ error: "Origin not allowed" }, { status: 403 });
   }
 

@@ -7,11 +7,12 @@ import { homedir, platform } from "node:os";
 import { dirname, join } from "node:path";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
+import { normalizeOrigin, resolveHostedOrigin } from "../ytdb.config.mjs";
 
 const packageRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const packageJson = JSON.parse(readFileSync(join(packageRoot, "package.json"), "utf8"));
 const defaultPort = 4371;
-const hostedOrigin = "https://ytdb.theobourgeois.com";
+const defaultOrigin = resolveHostedOrigin();
 
 function usage() {
   console.log(`YTDB ${packageJson.version}
@@ -19,11 +20,14 @@ function usage() {
 Usage: npx @theobourgeois/ytdb [options]
 
 Options:
-  --port <number>  Local bridge port (default: ${defaultPort})
-  --local          Open the UI directly on 127.0.0.1
-  --no-open        Start without opening a browser
-  --help, -h       Show this help
-  --version, -v    Print the version`);
+  --port <number>    Local bridge port (default: ${defaultPort})
+  --origin <url>     Hosted UI to open (default: ${defaultOrigin})
+  --local            Open the UI directly on 127.0.0.1
+  --no-open          Start without opening a browser
+  --help, -h         Show this help
+  --version, -v      Print the version
+
+The origin can also be set with the YTDB_HOSTED_ORIGIN environment variable.`);
 }
 
 function optionValue(name) {
@@ -45,6 +49,13 @@ if (process.argv.includes("--version") || process.argv.includes("-v")) {
 const port = Number(optionValue("--port") ?? defaultPort);
 if (!Number.isInteger(port) || port < 1024 || port > 65_535) {
   console.error("YTDB: --port must be an integer between 1024 and 65535.");
+  process.exit(1);
+}
+
+const originOption = optionValue("--origin");
+const hostedOrigin = originOption === undefined ? defaultOrigin : normalizeOrigin(originOption);
+if (!hostedOrigin) {
+  console.error("YTDB: --origin must be an http(s) URL, for example https://db.listen.yt.");
   process.exit(1);
 }
 
@@ -71,6 +82,8 @@ const child = spawn(
     env: {
       ...process.env,
       NEXT_TELEMETRY_DISABLED: "1",
+      // The bridge trusts whichever origin this process actually opened.
+      YTDB_HOSTED_ORIGIN: hostedOrigin,
       YTDB_BRIDGE_TOKEN: token,
       YTDB_LOG_DIR: join(homedir(), ".ytdb", "activity"),
     },

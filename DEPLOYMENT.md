@@ -3,7 +3,8 @@
 YTDB has two release surfaces that should be published in this order:
 
 1. The `@theobourgeois/ytdb` npm package, which runs the authenticated local database bridge.
-2. The Next.js UI, hosted at `https://ytdb.theobourgeois.com`.
+2. The Next.js UI, hosted at the origin configured in [`ytdb.config.mjs`](./ytdb.config.mjs),
+   currently `https://ytdb.theobourgeois.com`.
 
 Publishing the bridge first prevents the hosted UI from getting ahead of the local API.
 
@@ -52,6 +53,41 @@ dashboard rather than Vercel DNS:
 Do not replace the nameservers for `theobourgeois.com`; that could disrupt the existing site
 and email. Only add the `ytdb` CNAME. Once Vercel verifies it, HTTPS is provisioned
 automatically.
+
+## Switching the hosted domain
+
+`ytdb.config.mjs` is the only place a domain is hardcoded. `bin/ytdb.mjs` opens
+`HOSTED_ORIGIN` in the browser, and `src/proxy.ts` uses it as the local bridge's CORS
+allowlist, so both move together.
+
+To move to a new domain — `https://db.listen.yt`, for example:
+
+1. Point DNS at the Vercel project and add the domain under **Settings → Domains**. Confirm it
+   serves the app over HTTPS *before* changing any code; a domain that does not resolve yet
+   will strand every user the moment a package using it is published.
+2. In `ytdb.config.mjs`, set `HOSTED_ORIGIN` to the new origin and add the outgoing origin to
+   `ALSO_TRUSTED_UI_ORIGINS`, so bridges from already-installed package versions keep working:
+
+   ```js
+   export const HOSTED_ORIGIN = "https://db.listen.yt";
+   export const ALSO_TRUSTED_UI_ORIGINS = ["https://ytdb.theobourgeois.com"];
+   ```
+
+   Only list domains that are currently registered and under your control. An origin here may
+   talk to the local database bridge, so a domain that lapses and is registered by someone else
+   inherits that trust.
+3. Update `homepage` in `package.json`, bump `version`, then publish and deploy as above.
+4. Keep the old domain attached to the Vercel project until published packages that open it are
+   no longer in use. Saved connections live in `localStorage` per origin, so users switching
+   domains must **Export config** on the old origin and import it on the new one.
+
+Nothing needs to be rebuilt to test a different origin locally — the CLI accepts an override
+and passes it to the bridge, so the CORS allowlist follows:
+
+```bash
+npx @theobourgeois/ytdb --origin https://db.listen.yt
+YTDB_HOSTED_ORIGIN=https://db.listen.yt npx @theobourgeois/ytdb
+```
 
 ## Security checks after deployment
 

@@ -1,6 +1,6 @@
 {
   "name": "@theobourgeois/ytdb",
-  "version": "0.1.2",
+  "version": "0.1.4",
   "description": "A fast, local-first PostgreSQL browser.",
   "homepage": "https://ytdb.theobourgeois.com",
   "repository": {
@@ -18,7 +18,8 @@
     ".next/server",
     ".next/static",
     "bin",
-    "public"
+    "public",
+    "ytdb.config.mjs"
   ],
   "engines": {
     "node": ">=20.9.0"
