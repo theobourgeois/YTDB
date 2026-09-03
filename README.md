@@ -1,8 +1,8 @@
-# DB Studio
+# OpenDB
 
 A fast, local-first PostgreSQL browser for exploring and editing databases without leaving the keyboard.
 
-![DB Studio browsing a fictional products table](public/screenshots/db-studio-explorer.png)
+![OpenDB browsing a fictional products table](public/screenshots/db-studio-explorer.png)
 
 ## What it does
 
@@ -17,7 +17,13 @@ A fast, local-first PostgreSQL browser for exploring and editing databases witho
 - Import or export your workspace configuration
 - Choose from six built-in themes
 
-![DB Studio's new connection dialog](public/screenshots/db-studio-connection.png)
+![OpenDB's new connection dialog](public/screenshots/db-studio-connection.png)
+
+## Jump to any table
+
+Press <kbd>⌘</kbd>+<kbd>P</kbd> on macOS or <kbd>Ctrl</kbd>+<kbd>P</kbd> elsewhere to search across tables and saved connections. Type a table name to filter, then press <kbd>Enter</kbd> to open it.
+
+![OpenDB's Command P table palette filtering to products](public/screenshots/opendb-command-palette.png)
 
 The screenshots use a disposable local database with fictional product and company names. No production data or credentials are included in this repository.
 
@@ -71,11 +77,11 @@ npm run dev:convex   # optional Convex development process
 
 ## Security model
 
-DB Studio is intended to run on your own machine, not as a public hosted service.
+OpenDB is intended to run on your own machine, not as a public hosted service.
 
 - Connection URLs are stored in your browser's `localStorage`.
 - Each database request sends the selected URL to your local Next.js server, which connects to PostgreSQL.
-- Exported DB Studio configuration files include connection URLs. Treat those files like passwords and never commit them.
+- Exported OpenDB configuration files include connection URLs. Treat those files like passwords and never commit them.
 - The app supports writes and row deletion. Use a read-only or least-privilege PostgreSQL role when you do not need editing.
 - `.env*` files remain ignored by Git, with only the blank `.env.example` template allowed into the repository.
 
