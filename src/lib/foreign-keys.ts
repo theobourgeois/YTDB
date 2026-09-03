@@ -11,18 +11,19 @@ import {
   type TableRef,
 } from "./types";
 
-const LABEL_NAMES = new Set([
+/** Ordered by preference: the first name present on the table wins. */
+const LABEL_NAMES = [
   "name",
   "title",
   "label",
-  "email",
   "username",
-  "full_name",
   "display_name",
+  "full_name",
   "slug",
   "handle",
+  "email",
   "first_name",
-]);
+];
 
 const STRING_TYPES = new Set(["text", "varchar", "bpchar", "citext", "name"]);
 
@@ -37,6 +38,29 @@ export function foreignKeyForColumn(
   column: string,
 ): ForeignKey | undefined {
   return table?.foreignKeys?.find((fk) => fk.columns.includes(column));
+}
+
+export type FilterLookup = {
+  foreignKey: ForeignKey;
+  referencedTable: TableInfo;
+  keyColumn: string;
+};
+
+/**
+ * A filter value can be picked by label only for single-column foreign keys whose
+ * referenced table is loaded. Composite keys have no single value to resolve to.
+ */
+export function filterLookupFor(
+  table: TableInfo | undefined,
+  tables: TableInfo[],
+  column: string,
+): FilterLookup | null {
+  const foreignKey = foreignKeyForColumn(table, column);
+  if (!foreignKey || foreignKey.columns.length !== 1) return null;
+  const referencedTable = findTable(tables, foreignKey.referencedTable);
+  const keyColumn = foreignKey.referencedColumns[0];
+  if (!referencedTable || !keyColumn) return null;
+  return { foreignKey, referencedTable, keyColumn };
 }
 
 export function relatedCacheKey(table: TableRef, key: Cell[]): string {
@@ -61,8 +85,10 @@ export function displayColumnName(
   keyColumns: string[],
 ): string | null {
   const available = columns.filter((column) => !keyColumns.includes(column.name));
-  const named = available.find((column) => LABEL_NAMES.has(column.name.toLocaleLowerCase()));
-  if (named) return named.name;
+  for (const candidate of LABEL_NAMES) {
+    const named = available.find((column) => column.name.toLocaleLowerCase() === candidate);
+    if (named) return named.name;
+  }
   const text = available.find(
     (column) => column.typeCategory === "S" || STRING_TYPES.has(column.dataType),
   );

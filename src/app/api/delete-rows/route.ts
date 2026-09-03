@@ -4,7 +4,7 @@ import { jsonHandler, requireString } from "../_lib";
 
 type Body = { connectionUrl?: string; deletion?: RowDelete };
 
-export const POST = jsonHandler<Body>(async (body) => {
+export const POST = jsonHandler<Body>("rows.delete", async (body) => {
   const url = requireString(body.connectionUrl, "connectionUrl");
   if (!body.deletion) throw new Error("Missing deletion");
   return deleteRows(url, body.deletion);

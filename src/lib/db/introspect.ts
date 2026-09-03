@@ -24,6 +24,8 @@ const COLUMNS_SQL = `
          NOT a.attnotnull AS nullable,
          a.attgenerated <> '' AS is_generated,
          a.attidentity <> '' AS is_identity,
+         a.atthasdef AS has_default,
+         pg_get_expr(ad.adbin, ad.adrelid) AS default_expression,
          enum_values.labels AS enum_values,
          COALESCE(
            (SELECT TRUE FROM pg_index i
@@ -36,6 +38,7 @@ const COLUMNS_SQL = `
   JOIN pg_namespace n ON n.oid = c.relnamespace
   JOIN pg_type t ON t.oid = a.atttypid
   LEFT JOIN pg_type base_type ON base_type.oid = NULLIF(t.typbasetype, 0)
+  LEFT JOIN pg_attrdef ad ON ad.adrelid = c.oid AND ad.adnum = a.attnum
   LEFT JOIN LATERAL (
     SELECT array_agg(e.enumlabel::text ORDER BY e.enumsortorder) AS labels
     FROM pg_enum e
@@ -90,6 +93,8 @@ type ColumnRow = {
   nullable: boolean;
   is_generated: boolean;
   is_identity: boolean;
+  has_default: boolean;
+  default_expression: string | null;
   is_pk: boolean;
   enum_values: string[] | null;
 };
@@ -124,6 +129,8 @@ export async function listTables(connectionString: string): Promise<TableInfo[]>
       isPrimaryKey: row.is_pk,
       isGenerated: row.is_generated,
       isIdentity: row.is_identity,
+      hasDefault: row.has_default || row.is_identity,
+      ...(row.default_expression ? { defaultExpression: row.default_expression } : {}),
       ...(row.enum_values?.length ? { enumValues: row.enum_values } : {}),
     });
     columnsByTable.set(key, list);

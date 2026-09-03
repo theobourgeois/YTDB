@@ -25,6 +25,7 @@ import {
   LoaderCircleIcon,
   MinusIcon,
   PinIcon,
+  PlusIcon,
   SquareArrowOutUpRightIcon,
   Trash2Icon,
   XIcon,
@@ -109,6 +110,8 @@ type Props = {
   onColumnWidthsChange: (widths: Record<string, number>) => void;
   onTogglePin: (column: string) => void;
   onToggleHidden: (column: string) => void;
+  /** Omitted when the relation cannot take new rows. */
+  onInsertRow?: () => void;
   onUpdateCell: (update: CellUpdate) => Promise<CellUpdateResult>;
   onDeleteRows: (primaryKeys: Record<string, Cell>[]) => Promise<RowDeleteResult>;
 };
@@ -289,6 +292,7 @@ export function DataGrid({
   onColumnWidthsChange,
   onTogglePin,
   onToggleHidden,
+  onInsertRow,
   onUpdateCell,
   onDeleteRows,
 }: Props) {
@@ -735,9 +739,13 @@ export function DataGrid({
     const key = keyValuesForForeignKey(relation, columns, row);
     if (!key) return;
     setEditingCell(null);
-    setPeek({
-      anchor,
-      stack: [{ table: relation.referencedTable, keyColumns: relation.referencedColumns, key }],
+    setPeek((current) => {
+      // Clicking the same cell again (the td or the FK button inside it) closes the peek.
+      if (current && (current.anchor.contains(anchor) || anchor.contains(current.anchor))) return null;
+      return {
+        anchor,
+        stack: [{ table: relation.referencedTable, keyColumns: relation.referencedColumns, key }],
+      };
     });
   }
 
@@ -1036,7 +1044,6 @@ export function DataGrid({
                                 return;
                               }
                               if (followable && relation) {
-                                setPeek(null);
                                 openPeek(event.currentTarget, relation, row);
                               }
                             }}
@@ -1131,7 +1138,10 @@ export function DataGrid({
                 const target = scrollRef.current?.querySelector<HTMLElement>(
                   `td[data-row-index="${contextCell.rowIndex}"][data-cell-index="${contextCell.cellIndex}"]`,
                 );
-                if (target) openPeek(target, contextFk, contextRow);
+                if (!target) return;
+                // Always open from the menu, never toggle an already-open peek closed.
+                setPeek(null);
+                openPeek(target, contextFk, contextRow);
               }}
             >
               <Link2Icon />
@@ -1149,6 +1159,11 @@ export function DataGrid({
             >
               <SquareArrowOutUpRightIcon />
               Open referenced table
+            </ContextMenuItem>
+            <ContextMenuSeparator />
+            <ContextMenuItem disabled={!onInsertRow} onClick={() => onInsertRow?.()}>
+              <PlusIcon />
+              Insert row
             </ContextMenuItem>
             <ContextMenuSeparator />
             <ContextMenuItem
@@ -1196,7 +1211,15 @@ export function DataGrid({
           </ContextMenuContent>
         </ContextMenu>
         {gridRows.length === 0 && (
-          <p className="py-10 text-center text-sm text-muted-foreground">No rows</p>
+          <div className="flex flex-col items-center gap-3 py-10">
+            <p className="text-sm text-muted-foreground">No rows</p>
+            {onInsertRow && (
+              <Button variant="outline" size="sm" onClick={onInsertRow}>
+                <PlusIcon data-icon="inline-start" />
+                Insert row
+              </Button>
+            )}
+          </div>
         )}
       </div>
       {editingCell && editingInfo && !editingInline && (
@@ -1220,6 +1243,7 @@ export function DataGrid({
           relatedRows={fk.relatedRows}
           onClose={() => setPeek(null)}
           onPeek={setPeek}
+          onUpdateCell={onUpdateCell}
           onOpenTable={(nextTable, filters) => {
             setPeek(null);
             fk.onOpenTable(nextTable, filters);

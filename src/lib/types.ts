@@ -21,6 +21,9 @@ export type ColumnInfo = {
   isPrimaryKey: boolean;
   isGenerated: boolean;
   isIdentity: boolean;
+  hasDefault: boolean;
+  /** Rendered default expression, when the column has one. */
+  defaultExpression?: string;
   enumValues?: string[];
 };
 
@@ -62,6 +65,12 @@ export type Filter = {
   column: string;
   operator: FilterOperator;
   value: string;
+  /**
+   * Display-only caption for `value`, set when a foreign-key value was chosen by
+   * label rather than typed. Never affects the query: a stale label still filters
+   * on the right key.
+   */
+  label?: string;
 };
 
 export type Sort = {
@@ -91,6 +100,19 @@ export type RowsResult = {
   capped?: boolean;
 };
 
+export type SqlStatementResult = {
+  command: string;
+  columns: string[];
+  rows: Cell[][];
+  rowCount: number | null;
+  truncated: boolean;
+};
+
+export type SqlQueryResult = {
+  statements: SqlStatementResult[];
+  durationMs: number;
+};
+
 export type CellUpdate = {
   table: TableRef;
   column: string;
@@ -99,6 +121,17 @@ export type CellUpdate = {
 };
 
 export type CellUpdateResult = {
+  row: Cell[];
+};
+
+export type RowInsert = {
+  table: TableRef;
+  /** Only the columns present are written; the rest take their database default. */
+  values: Record<string, Cell>;
+};
+
+export type RowInsertResult = {
+  /** The inserted row, in the table's column order. */
   row: Cell[];
 };
 

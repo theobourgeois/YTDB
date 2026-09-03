@@ -6,8 +6,11 @@ import type {
   RelatedResult,
   RowDelete,
   RowDeleteResult,
+  RowInsert,
+  RowInsertResult,
   RowsQuery,
   RowsResult,
+  SqlQueryResult,
   TableDefinition,
   TableInfo,
   TableRef,
@@ -50,8 +53,14 @@ export const api = {
   rows: (connectionUrl: string, query: RowsQuery, signal?: AbortSignal) =>
     post<RowsResult>("/api/rows", { connectionUrl, query }, signal),
 
+  query: (connectionUrl: string, sql: string, signal?: AbortSignal) =>
+    post<SqlQueryResult>("/api/query", { connectionUrl, sql }, signal),
+
   updateCell: (connectionUrl: string, update: CellUpdate, signal?: AbortSignal) =>
     post<CellUpdateResult>("/api/cell", { connectionUrl, update }, signal),
+
+  insertRow: (connectionUrl: string, insertion: RowInsert, signal?: AbortSignal) =>
+    post<RowInsertResult>("/api/insert-row", { connectionUrl, insertion }, signal),
 
   deleteRows: (connectionUrl: string, deletion: RowDelete, signal?: AbortSignal) =>
     post<RowDeleteResult>("/api/delete-rows", { connectionUrl, deletion }, signal),

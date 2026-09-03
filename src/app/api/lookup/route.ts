@@ -3,7 +3,7 @@ import { jsonHandler, requireString, requireTable } from "../_lib";
 
 type Body = { connectionUrl?: string; query?: { table?: unknown; search?: unknown; limit?: unknown } };
 
-export const POST = jsonHandler<Body>(async (body) => {
+export const POST = jsonHandler<Body>("lookup", async (body) => {
   const url = requireString(body.connectionUrl, "connectionUrl");
   if (!body.query) throw new Error("Missing query");
   const search = body.query.search;

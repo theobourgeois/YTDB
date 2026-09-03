@@ -38,7 +38,7 @@ function parseLookups(value: unknown): RelatedLookup[] {
   });
 }
 
-export const POST = jsonHandler<Body>(async (body) => {
+export const POST = jsonHandler<Body>("related", async (body) => {
   const url = requireString(body.connectionUrl, "connectionUrl");
   return fetchRelated(url, parseLookups(body.lookups));
 });

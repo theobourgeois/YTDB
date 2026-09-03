@@ -7,9 +7,18 @@ export const EXACT_COUNT_MAX_BYTES = 8 * 1024 * 1024;
 /** OFFSET past this still has to walk every skipped row. */
 export const MAX_OFFSET = 10_000;
 
+/** Query-console results are fetched through a cursor and truncated at this size. */
+export const QUERY_RESULT_LIMIT = 500;
+
+/** Migrations need more headroom than interactive table browsing. */
+export const QUERY_STATEMENT_TIMEOUT_MS = 60_000;
+
+/** Keeps oversized requests and persisted drafts out of the browser and API. */
+export const MAX_QUERY_LENGTH = 50_000;
+
 export function queryErrorMessage(error: unknown): string {
   if (isQueryTimeout(error)) {
-    return "Query took too long and was cancelled. Add a filter instead of scanning the whole table.";
+    return "Query took too long and was cancelled. Add a filter or limit the result set.";
   }
   if (error instanceof Error) return error.message;
   return "Unknown error";

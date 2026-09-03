@@ -40,6 +40,14 @@ export function operatorHasValue(operator: FilterOperator): boolean {
   return OPERATORS[operator].hasValue;
 }
 
+/**
+ * Picking a referenced row resolves to exactly one key, so only the exact
+ * operators can be filled from a foreign-key lookup.
+ */
+export function operatorResolvesToKey(operator: FilterOperator): boolean {
+  return operator === "eq" || operator === "neq";
+}
+
 /** A filter is applied to the query only once it is fully specified. */
 export function isFilterComplete(filter: Filter): boolean {
   if (!filter.column) return false;

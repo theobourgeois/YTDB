@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Popover } from "@base-ui/react/popover";
 import {
   ArrowUpRightIcon,
@@ -9,6 +9,7 @@ import {
   KeyRoundIcon,
   Link2Icon,
   LoaderCircleIcon,
+  PencilIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -24,8 +25,18 @@ import {
   relatedLabel,
   type RelatedRows,
 } from "@/lib/foreign-keys";
-import { tableKey, type Cell, type Filter, type TableInfo, type TableRef } from "@/lib/types";
+import {
+  tableKey,
+  type Cell,
+  type CellUpdate,
+  type CellUpdateResult,
+  type ColumnInfo,
+  type Filter,
+  type TableInfo,
+  type TableRef,
+} from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { CellEditor, isInlineChoiceEditor } from "./cell-editor";
 
 export type PeekFrame = {
   table: TableRef;
@@ -38,6 +49,11 @@ export type PeekState = {
   stack: PeekFrame[];
 };
 
+type PeekEdit = {
+  column: string;
+  anchor: HTMLElement;
+};
+
 type Props = {
   peek: PeekState;
   connectionUrl: string;
@@ -46,12 +62,29 @@ type Props = {
   onClose: () => void;
   onPeek: (peek: PeekState) => void;
   onOpenTable: (table: TableRef, filters: Filter[]) => void;
+  onUpdateCell: (update: CellUpdate) => Promise<CellUpdateResult>;
 };
+
+/**
+ * The cell editor and the select popup it can open are portalled next to the
+ * peek rather than inside it, so a press in either one is not really "outside".
+ */
+const EDITOR_LAYER_SELECTOR = "[data-cell-editor],[data-slot='select-content']";
 
 function cellText(value: Cell): string {
   if (value === null) return "null";
   if (typeof value === "boolean") return value ? "true" : "false";
   return String(value);
+}
+
+function editReason(table: TableInfo | undefined, column: ColumnInfo | undefined): string | null {
+  if (!table) return "Table metadata is unavailable";
+  if (table.kind !== "table") return "Views and foreign tables are read-only";
+  if (!table.columns.some((item) => item.isPrimaryKey)) return "Editing requires a primary key";
+  if (!column) return "Column metadata is unavailable";
+  if (column.isGenerated) return "Generated columns are read-only";
+  if (column.isIdentity) return "Identity columns are read-only";
+  return null;
 }
 
 export function RowPeek({
@@ -62,15 +95,31 @@ export function RowPeek({
   onClose,
   onPeek,
   onOpenTable,
+  onUpdateCell,
 }: Props) {
+  // Scoped to the frame it was opened on, so peeking another row drops the editor.
+  const [edit, setEdit] = useState<{ frame: string; edit: PeekEdit } | null>(null);
   const frame = peek.stack[peek.stack.length - 1];
   if (!frame) return null;
+
+  const frameKey = relatedCacheKey(frame.table, frame.key);
+  const activeEdit = edit?.frame === frameKey ? edit.edit : null;
 
   return (
     <Popover.Root
       open
-      onOpenChange={(open) => {
-        if (!open) onClose();
+      onOpenChange={(open, details) => {
+        if (open) return;
+        // Escape belongs to the open editor, which closes itself first.
+        if (activeEdit && details.reason === "escape-key") return;
+        if (details.reason === "outside-press") {
+          const target = details.event.target;
+          if (target instanceof Element && target.closest(EDITOR_LAYER_SELECTOR)) return;
+          // A press on the anchor itself is handled by the anchor's own click handler,
+          // which toggles the peek closed. Closing here too would let that click reopen it.
+          if (target instanceof Node && peek.anchor.contains(target)) return;
+        }
+        onClose();
       }}
     >
       <Popover.Portal>
@@ -87,15 +136,18 @@ export function RowPeek({
             className="flex max-h-[min(32rem,calc(100vh-2rem))] w-[min(32rem,calc(100vw-1rem))] origin-(--transform-origin) flex-col overflow-hidden rounded-xl bg-popover text-popover-foreground shadow-xl ring-1 ring-foreground/10 outline-none data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95"
           >
             <PeekBody
-              key={relatedCacheKey(frame.table, frame.key)}
+              key={frameKey}
               frame={frame}
               canGoBack={peek.stack.length > 1}
               connectionUrl={connectionUrl}
               tables={tables}
               relatedRows={relatedRows}
+              edit={activeEdit}
+              onEdit={(next) => setEdit(next ? { frame: frameKey, edit: next } : null)}
               onBack={() => onPeek({ ...peek, stack: peek.stack.slice(0, -1) })}
               onFollow={(next) => onPeek({ ...peek, stack: [...peek.stack, next] })}
               onOpenTable={onOpenTable}
+              onUpdateCell={onUpdateCell}
             />
           </Popover.Popup>
         </Popover.Positioner>
@@ -110,21 +162,28 @@ function PeekBody({
   connectionUrl,
   tables,
   relatedRows,
+  edit,
+  onEdit,
   onBack,
   onFollow,
   onOpenTable,
+  onUpdateCell,
 }: {
   frame: PeekFrame;
   canGoBack: boolean;
   connectionUrl: string;
   tables: TableInfo[];
   relatedRows: RelatedRows;
+  edit: PeekEdit | null;
+  onEdit: (edit: PeekEdit | null) => void;
   onBack: () => void;
   onFollow: (frame: PeekFrame) => void;
   onOpenTable: (table: TableRef, filters: Filter[]) => void;
+  onUpdateCell: (update: CellUpdate) => Promise<CellUpdateResult>;
 }) {
   const table = findTable(tables, frame.table);
   const cached = relatedRows.get(relatedCacheKey(frame.table, frame.key));
+  const [saved, setSaved] = useState<Cell[] | null>(null);
   const query = useMemo(
     () => ({
       table: frame.table,
@@ -141,10 +200,27 @@ function PeekBody({
   );
 
   const columns = rows.data?.columns ?? cached?.columns ?? table?.columns.map((column) => column.name);
-  const row = rows.data?.rows[0] ?? cached?.row;
+  // An update returns the whole post-update row, and nothing else refetches this
+  // frame, so a saved row outranks the fetch it may have raced.
+  const row = saved ?? rows.data?.rows[0] ?? cached?.row;
   const missing = Boolean(rows.data && rows.data.rows.length === 0 && !cached);
   const title = relatedRowTitle(table, frame, columns, row);
   const incoming = table?.referencedBy ?? [];
+
+  async function saveCell(column: string, value: Cell) {
+    if (!table || !columns || !row) throw new Error("This row is no longer available");
+    const primaryKey = Object.fromEntries(
+      table.columns.flatMap((item) => {
+        if (!item.isPrimaryKey) return [];
+        const index = columns.indexOf(item.name);
+        if (index < 0) throw new Error("The row primary key is incomplete");
+        return [[item.name, row[index] ?? null]];
+      }),
+    );
+    const result = await onUpdateCell({ table: frame.table, column, primaryKey, value });
+    setSaved(result.row);
+    onEdit(null);
+  }
 
   return (
     <>
@@ -218,11 +294,21 @@ function PeekBody({
                   : null;
                 const showLabel = Boolean(label && label !== valueText);
                 const followable = Boolean(fk && fkKey);
+                const reason = editReason(table, info);
+                const editing = edit?.column === column;
 
                 return (
                   <div
                     key={column}
-                    className="grid grid-cols-[minmax(7rem,38%)_minmax(0,1fr)] items-start gap-4 px-3.5 py-2 hover:bg-muted/15"
+                    className="group/field grid grid-cols-[minmax(7rem,38%)_minmax(0,1fr)] items-start gap-4 px-3.5 py-2 hover:bg-muted/15"
+                    onDoubleClick={(event) => {
+                      // Foreign keys keep double-click free: a single click follows them.
+                      if (followable || reason || editing) return;
+                      const anchor = event.currentTarget.querySelector<HTMLElement>(
+                        "[data-peek-value]",
+                      );
+                      if (anchor) onEdit({ column, anchor });
+                    }}
                   >
                     <dt className="flex min-w-0 items-center gap-1.5">
                       {info?.isPrimaryKey && (
@@ -249,41 +335,82 @@ function PeekBody({
                         </span>
                       )}
                     </dt>
-                    <dd className="min-w-0 font-mono text-xs leading-5 tabular-nums">
-                      {followable && fk && fkKey ? (
-                        <button
-                          type="button"
-                          title={`${valueText} → ${tableKey(fk.referencedTable)}`}
-                          onClick={() =>
-                            onFollow({
-                              table: fk.referencedTable,
-                              keyColumns: fk.referencedColumns,
-                              key: fkKey,
-                            })
-                          }
-                          className="group -m-1 flex max-w-full cursor-pointer items-center gap-1.5 rounded-md p-1 text-left outline-none hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring/60"
-                        >
-                          <Link2Icon className="size-3 shrink-0 text-muted-foreground" />
-                          <span className="min-w-0 truncate underline decoration-foreground/20 underline-offset-2">
-                            {showLabel ? label : valueText}
-                          </span>
-                          {showLabel && (
-                            <span className="min-w-0 truncate text-muted-foreground/60">
-                              {valueText}
-                            </span>
-                          )}
-                          <ChevronRightIcon className="size-3 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100" />
-                        </button>
+                    <dd
+                      data-peek-value
+                      className="min-w-0 font-mono text-xs leading-5 tabular-nums"
+                    >
+                      {editing && info && edit ? (
+                        <div className={cn(isInlineChoiceEditor(info) && "h-5")}>
+                          <CellEditor
+                            anchor={edit.anchor}
+                            column={info}
+                            value={value}
+                            foreignKey={fk}
+                            referencedTable={referenced}
+                            connectionUrl={connectionUrl}
+                            layer="peek"
+                            onClose={() => onEdit(null)}
+                            onSave={(next) => saveCell(column, next)}
+                          />
+                        </div>
                       ) : (
-                        <p
-                          title={valueText}
-                          className={cn(
-                            "break-words whitespace-pre-wrap",
-                            value === null && "italic text-muted-foreground/60",
+                        <div className="flex min-w-0 items-start gap-1">
+                          <div className="min-w-0 flex-1">
+                            {followable && fk && fkKey ? (
+                              <button
+                                type="button"
+                                title={`${valueText} → ${tableKey(fk.referencedTable)}`}
+                                onClick={() =>
+                                  onFollow({
+                                    table: fk.referencedTable,
+                                    keyColumns: fk.referencedColumns,
+                                    key: fkKey,
+                                  })
+                                }
+                                className="group -m-1 flex max-w-full cursor-pointer items-center gap-1.5 rounded-md p-1 text-left outline-none hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring/60"
+                              >
+                                <Link2Icon className="size-3 shrink-0 text-muted-foreground" />
+                                <span className="min-w-0 truncate underline decoration-foreground/20 underline-offset-2">
+                                  {showLabel ? label : valueText}
+                                </span>
+                                {showLabel && (
+                                  <span className="min-w-0 truncate text-muted-foreground/60">
+                                    {valueText}
+                                  </span>
+                                )}
+                                <ChevronRightIcon className="size-3 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100" />
+                              </button>
+                            ) : (
+                              <p
+                                title={valueText}
+                                className={cn(
+                                  "break-words whitespace-pre-wrap",
+                                  value === null && "italic text-muted-foreground/60",
+                                )}
+                              >
+                                {valueText}
+                              </p>
+                            )}
+                          </div>
+                          {reason === null ? (
+                            <button
+                              type="button"
+                              aria-label={`Edit ${column}`}
+                              title={followable ? `Edit ${column}` : `Edit ${column} · Double-click`}
+                              onClick={(event) => {
+                                const anchor =
+                                  event.currentTarget.closest<HTMLElement>("[data-peek-value]");
+                                onEdit({ column, anchor: anchor ?? event.currentTarget });
+                              }}
+                              className="shrink-0 cursor-pointer rounded-md p-0.5 text-muted-foreground opacity-0 outline-none transition-opacity hover:bg-muted/60 hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring/60 group-hover/field:opacity-100"
+                            >
+                              <PencilIcon className="size-3" />
+                            </button>
+                          ) : (
+                            // Keeps read-only values aligned with editable ones.
+                            <span title={reason} className="size-4 shrink-0" />
                           )}
-                        >
-                          {valueText}
-                        </p>
+                        </div>
                       )}
                     </dd>
                   </div>

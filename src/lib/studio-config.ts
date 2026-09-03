@@ -1,3 +1,4 @@
+import { logUiAction } from "./activity/client";
 import { isThemeId, type ThemeId } from "./themes";
 import type { Connection } from "./types";
 import type { BrowseState, TableState } from "./store/explorer";
@@ -32,7 +33,9 @@ export function snapshotStudioConfig(): StudioConfig {
 }
 
 export function downloadStudioConfig(): void {
-  const json = `${JSON.stringify(snapshotStudioConfig(), null, 2)}\n`;
+  const config = snapshotStudioConfig();
+  logUiAction("config.export", { connections: config.connections.length });
+  const json = `${JSON.stringify(config, null, 2)}\n`;
   const blob = new Blob([json], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
@@ -81,6 +84,10 @@ export function parseStudioConfig(text: string): StudioConfig {
 }
 
 export function applyStudioConfig(config: StudioConfig): void {
+  logUiAction("config.import", {
+    connections: config.connections.length,
+    exportedAt: config.exportedAt,
+  });
   useConnections.setState({ connections: config.connections });
   useExplorer.setState({
     browse: config.explorer.browse,

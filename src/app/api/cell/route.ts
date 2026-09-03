@@ -4,7 +4,7 @@ import { jsonHandler, requireString } from "../_lib";
 
 type Body = { connectionUrl?: string; update?: CellUpdate };
 
-export const POST = jsonHandler<Body>(async (body) => {
+export const POST = jsonHandler<Body>("cell.update", async (body) => {
   const url = requireString(body.connectionUrl, "connectionUrl");
   if (!body.update) throw new Error("Missing update");
   return updateCell(url, body.update);

@@ -37,7 +37,7 @@ yarn-error.log*
 # vercel
 .vercel
 
-# local YTDB data
+# local activity log
 /.ytdb/
 /.db-*/
 

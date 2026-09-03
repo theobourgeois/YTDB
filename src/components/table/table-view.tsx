@@ -1,8 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { PlusIcon } from "lucide-react";
 import { useExplorerContext } from "@/components/explorer/explorer-provider";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAsync } from "@/hooks/use-async";
 import { useDebounced } from "@/hooks/use-debounced";
@@ -19,13 +21,29 @@ import {
   tableHref,
 } from "@/lib/foreign-keys";
 import { useExplorer, useTableState } from "@/lib/store/explorer";
-import { tableKey, type ColumnInfo, type Filter, type TableRef } from "@/lib/types";
+import {
+  tableKey,
+  type Cell,
+  type ColumnInfo,
+  type Filter,
+  type TableInfo,
+  type TableRef,
+} from "@/lib/types";
 import { ColumnJump } from "./column-jump";
 import { ColumnLayoutMenu } from "./column-layout";
 import { DataGrid } from "./data-grid";
 import { DefinitionView } from "./definition-view";
 import { FilterBar } from "./filter-bar";
 import { Pagination, type TablePane } from "./pagination";
+import { RowInsertDialog } from "./row-insert-dialog";
+
+/** Names the row that was just inserted by its primary key, when it has one. */
+function insertedLabel(info: TableInfo, row: Cell[]): string {
+  const keys = info.columns.flatMap((column, index) =>
+    column.isPrimaryKey ? [`${column.name} ${String(row[index] ?? "null")}`] : [],
+  );
+  return keys.length > 0 ? `Inserted ${keys.join(", ")}` : "Row inserted";
+}
 
 export function TableView({ table }: { table: TableRef }) {
   const router = useRouter();
@@ -33,6 +51,9 @@ export function TableView({ table }: { table: TableRef }) {
   const [state, setState] = useTableState(connection.id, table);
   const [jumpColumn, setJumpColumn] = useState<string | null>(null);
   const [pane, setPane] = useState<TablePane>("data");
+  const [inserting, setInserting] = useState(false);
+  const [insertNotice, setInsertNotice] = useState<string | null>(null);
+  const insertNoticeTimer = useRef<number | null>(null);
 
   const info = tables.data?.find(
     (item) => item.schema === table.schema && item.name === table.name,
@@ -97,6 +118,22 @@ export function TableView({ table }: { table: TableRef }) {
     router.push(tableHref(connection.id, nextTable));
   }
 
+  const insertReason = !info
+    ? "Table metadata is unavailable"
+    : info.kind !== "table"
+      ? "Views and foreign tables are read-only"
+      : null;
+
+  async function insertRow(values: Record<string, Cell>) {
+    const result = await api.insertRow(connection.url, { table, values });
+    setInserting(false);
+    setInsertNotice(info ? insertedLabel(info, result.row) : "Row inserted");
+    if (insertNoticeTimer.current !== null) window.clearTimeout(insertNoticeTimer.current);
+    insertNoticeTimer.current = window.setTimeout(() => setInsertNotice(null), 4000);
+    rows.reload();
+    return result;
+  }
+
   function togglePin(column: string) {
     const nextPinned = togglePinnedColumn(pinnedColumns, column);
     const pinning = nextPinned.includes(column);
@@ -126,14 +163,35 @@ export function TableView({ table }: { table: TableRef }) {
         <span className="truncate font-medium">{table.name}</span>
         <div className="ml-auto flex min-w-0 items-center gap-2">
           {pane === "data" ? (
-            <ColumnLayoutMenu
-              columns={info?.columns ?? []}
-              pinnedColumns={pinnedColumns}
-              hiddenColumns={state.hiddenColumns}
-              onTogglePin={togglePin}
-              onToggleHidden={toggleHidden}
-              onReset={() => setState({ pinnedColumns: undefined, hiddenColumns: [] })}
-            />
+            <>
+              {insertNotice ? (
+                <span
+                  role="status"
+                  title={insertNotice}
+                  className="min-w-0 truncate font-mono text-xs text-muted-foreground animate-in fade-in-0"
+                >
+                  {insertNotice}
+                </span>
+              ) : null}
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={Boolean(insertReason)}
+                title={insertReason ?? "Insert a new row"}
+                onClick={() => setInserting(true)}
+              >
+                <PlusIcon data-icon="inline-start" />
+                New row
+              </Button>
+              <ColumnLayoutMenu
+                columns={info?.columns ?? []}
+                pinnedColumns={pinnedColumns}
+                hiddenColumns={state.hiddenColumns}
+                onTogglePin={togglePin}
+                onToggleHidden={toggleHidden}
+                onReset={() => setState({ pinnedColumns: undefined, hiddenColumns: [] })}
+              />
+            </>
           ) : null}
         </div>
       </header>
@@ -143,6 +201,9 @@ export function TableView({ table }: { table: TableRef }) {
           filters={state.filters}
           search={state.search}
           columns={info?.columns ?? []}
+          table={info}
+          tables={tables.data ?? []}
+          connectionUrl={connection.url}
           onFiltersChange={(filters) => setState({ filters, page: 0 })}
           onSearchChange={(search) => setState({ search, page: 0 })}
         />
@@ -190,6 +251,7 @@ export function TableView({ table }: { table: TableRef }) {
             onColumnWidthsChange={(columnWidths) => setState({ columnWidths })}
             onTogglePin={togglePin}
             onToggleHidden={toggleHidden}
+            onInsertRow={insertReason ? undefined : () => setInserting(true)}
             onUpdateCell={(update) => api.updateCell(connection.url, update)}
             onDeleteRows={async (primaryKeys) => {
               const result = await api.deleteRows(connection.url, {
@@ -235,6 +297,17 @@ export function TableView({ table }: { table: TableRef }) {
           />
         ) : null}
       </div>
+
+      {info && info.kind === "table" ? (
+        <RowInsertDialog
+          open={inserting}
+          table={info}
+          tables={tables.data ?? []}
+          connectionUrl={connection.url}
+          onOpenChange={setInserting}
+          onInsert={insertRow}
+        />
+      ) : null}
 
       <Pagination
         pane={pane}

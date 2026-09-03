@@ -1,43 +1,81 @@
 # Publishing YTDB
 
-Publish the `@theobourgeois/ytdb` npm package first, then deploy the Next.js UI at
-`https://ytdb.theobourgeois.com` so the hosted UI never gets ahead of the local bridge API.
+YTDB has two release surfaces that should be published in this order:
 
-## npm
+1. The `@theobourgeois/ytdb` npm package, which runs the authenticated local database bridge.
+2. The Next.js UI, hosted at `https://ytdb.theobourgeois.com`.
+
+Publishing the bridge first prevents the hosted UI from getting ahead of the local API.
+
+## 1. Publish the npm package
+
+npm rejects the unscoped `ytdb` name as too similar to existing packages, so YTDB uses the
+official `@theobourgeois` scope.
 
 ```bash
 npm login
 npm publish
 ```
 
-npm rejects the unscoped `ytdb` name as too similar to existing packages, so YTDB uses the
-official `@theobourgeois` scope. The `prepack` script builds the production app automatically.
-Increment the version before every later release.
+The `prepack` lifecycle builds the production app automatically. Verify the public package
+from a directory outside this repository:
 
-## Vercel and Squarespace DNS
+```bash
+npx @theobourgeois/ytdb@latest --version
+npx @theobourgeois/ytdb@latest
+```
 
-Import `https://github.com/theobourgeois/YTDB` into Vercel with the detected Next.js defaults.
-No environment variables are required. Add `ytdb.theobourgeois.com` in **Settings → Domains**,
-then add the exact CNAME record Vercel provides in Squarespace DNS:
+From inside this repository, use
+`npx --yes --package=@theobourgeois/ytdb@latest -- ytdb` to force npm to use the registry
+package instead of mistaking the source checkout for an installed executable.
+
+Future releases must increment `version` in `package.json` before publishing.
+
+## 2. Deploy the UI to Vercel
+
+Import `https://github.com/theobourgeois/YTDB` as a new Vercel project and keep the detected
+Next.js defaults. No environment variables are required. Vercel automatically sets `VERCEL=1`;
+YTDB uses that flag to disable every database API route on the public deployment.
+
+After the first production deployment, add `ytdb.theobourgeois.com` under the project's
+**Settings → Domains**. Vercel will display the exact DNS record for the project.
+
+## 3. Add the Squarespace DNS record
+
+The domain currently uses Squarespace nameservers, so add the record in the Squarespace DNS
+dashboard rather than Vercel DNS:
 
 - Type: `CNAME`
 - Host: `ytdb`
 - Value: `364942a787be1930.vercel-dns-017.com`
 
-Do not change the domain's nameservers. Vercel provisions HTTPS after the record verifies.
+Do not replace the nameservers for `theobourgeois.com`; that could disrupt the existing site
+and email. Only add the `ytdb` CNAME. Once Vercel verifies it, HTTPS is provisioned
+automatically.
 
-## Verify
+## Security checks after deployment
 
-`curl -i https://ytdb.theobourgeois.com/api/health` must return a 404 with
-`{"error":"Database API is local-only"}`. Then `npx @theobourgeois/ytdb` should open a browser tab connected
-to the authenticated local bridge.
+```bash
+curl -i https://ytdb.theobourgeois.com/api/health
+```
 
-Run the short `npx` command outside this package's source checkout. From inside the repository,
-use `npx --yes --package=@theobourgeois/ytdb@latest -- ytdb` to force npm to use the registry package.
+The hosted API must return `404` with `{"error":"Database API is local-only"}`. Then run
+`npx @theobourgeois/ytdb`; the opened browser tab should connect to the local bridge and show the connection
+list.
 
-Browser storage cannot cross origins. Export config from the old local origin before removing
-its hostname mapping, then import that file at the hosted origin.
+## Move existing browser data
 
-Connection URLs remain in `localStorage` under the hosted origin. They are not stored by
-Vercel, but deployed YTDB JavaScript can read them. Keep the site free of third-party scripts,
-protect GitHub and Vercel with 2FA, and use least-privilege PostgreSQL roles.
+Browser storage cannot cross origins automatically. Before removing the old hostname entries,
+run the development server and open the origin where the connections were saved—usually
+`http://local.dbstudio` or `http://local.ytdb`. YTDB automatically copies the old DB Studio
+storage keys on that origin. Use **Export config**, then import the JSON file in
+`https://ytdb.theobourgeois.com` after launching the bridge.
+
+The old launch daemons and `/etc/hosts` entries can be removed after that export. The exact
+installed labels are `com.dbstudio.local-proxy` and `com.ytdb.local-proxy`.
+
+Connection URLs remain in browser `localStorage` under the hosted origin. They are not stored
+by Vercel, but the currently deployed YTDB JavaScript can read them. Keep this deployment free
+of analytics and third-party scripts, protect the GitHub and Vercel accounts with strong 2FA,
+and use least-privilege PostgreSQL roles. A compromised UI deployment could act with the same
+database permissions as the user while a bridge session is active.

@@ -91,6 +91,13 @@ export function CommandPalette() {
   const commands = useMemo((): Command[] => {
     return [
       {
+        id: "new-query",
+        title: "Open SQL Query",
+        keywords: ["new", "query", "sql", "console", "editor"],
+        enabled: true,
+        run: () => router.push(`/${encodeURIComponent(connection.id)}/query`),
+      },
+      {
         id: "reload-tables",
         title: "Reload Tables",
         keywords: ["refresh", "reload", "tables", "sync"],
@@ -176,7 +183,7 @@ export function CommandPalette() {
         run: () => setConnectionDialogOpen(true),
       },
     ];
-  }, [browse.pinnedTables, connection.id, pinned, setBrowse, table, tableState?.search, tables]);
+  }, [browse.pinnedTables, connection.id, pinned, router, setBrowse, table, tableState?.search, tables]);
 
   const commandRows = useMemo(() => {
     if (!query.trim()) return commands;

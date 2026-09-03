@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   useMemo,
   useRef,
@@ -8,13 +10,14 @@ import {
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import { PanelLeftCloseIcon, SearchIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { PanelLeftCloseIcon, SearchIcon, SquareTerminalIcon } from "lucide-react";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useBrowseState } from "@/lib/store/explorer";
 import { tableKey, type TableInfo } from "@/lib/types";
+import { cn } from "@/lib/utils";
 import { ConnectionSwitcher } from "./connection-switcher";
 import { useExplorerContext } from "./explorer-provider";
 import { SchemaMultiSelect } from "./schema-multi-select";
@@ -68,6 +71,7 @@ function filterTables(
 }
 
 export function Sidebar({ width: persistedWidth, onWidthChange, onCollapse }: Props) {
+  const pathname = usePathname();
   const { connection, tables } = useExplorerContext();
   const [browse, setBrowse] = useBrowseState(connection.id);
   const [width, setWidth] = useState(() => clampSidebarWidth(persistedWidth));
@@ -88,6 +92,7 @@ export function Sidebar({ width: persistedWidth, onWidthChange, onCollapse }: Pr
     () => filterTables(tables.data ?? [], browse.search, selectedSchemas),
     [tables.data, browse.search, selectedSchemas],
   );
+  const queryHref = `/${encodeURIComponent(connection.id)}/query`;
 
   function expandMatchingSchemas(search: string, selected: string[] | null) {
     const matches = filterTables(tables.data ?? [], search, selected);
@@ -213,6 +218,17 @@ export function Sidebar({ width: persistedWidth, onWidthChange, onCollapse }: Pr
             <PanelLeftCloseIcon />
           </Button>
         </div>
+        <Link
+          href={queryHref}
+          aria-current={pathname === queryHref ? "page" : undefined}
+          className={cn(
+            buttonVariants({ variant: pathname === queryHref ? "secondary" : "ghost", size: "sm" }),
+            "h-8 w-full justify-start px-2",
+          )}
+        >
+          <SquareTerminalIcon data-icon="inline-start" />
+          SQL query
+        </Link>
         <div className="relative">
           <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input

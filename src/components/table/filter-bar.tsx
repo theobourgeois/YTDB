@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { rankFuzzy } from "@/lib/fuzzy";
 import { newFilter } from "@/lib/filters";
 import { cn } from "@/lib/utils";
-import type { ColumnInfo, Filter } from "@/lib/types";
+import type { ColumnInfo, Filter, TableInfo } from "@/lib/types";
 import { HighlightMatch } from "./highlight-match";
 import { FilterRow } from "./filter-row";
 
@@ -20,6 +20,10 @@ type Props = {
   filters: Filter[];
   search: string;
   columns: ColumnInfo[];
+  /** Passed through to filter chips so foreign-key values can be picked by label. */
+  table?: TableInfo;
+  tables?: TableInfo[];
+  connectionUrl?: string;
   onFiltersChange: (filters: Filter[]) => void;
   onSearchChange: (search: string) => void;
 };
@@ -54,6 +58,9 @@ export function FilterBar({
   filters,
   search,
   columns,
+  table,
+  tables,
+  connectionUrl,
   onFiltersChange,
   onSearchChange,
 }: Props) {
@@ -230,6 +237,9 @@ export function FilterBar({
             filter={filter}
             columns={columns}
             autoStart={filter.id === activeId}
+            table={table}
+            tables={tables}
+            connectionUrl={connectionUrl}
             onChange={(next) =>
               onFiltersChange(filters.map((item) => (item.id === next.id ? next : item)))
             }

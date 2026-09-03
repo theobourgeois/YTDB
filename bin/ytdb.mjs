@@ -3,9 +3,9 @@
 import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
-import { createRequire } from "node:module";
 import { homedir, platform } from "node:os";
 import { dirname, join } from "node:path";
+import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 
 const packageRoot = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -33,8 +33,14 @@ function optionValue(name) {
   return process.argv.find((value) => value.startsWith(prefix))?.slice(prefix.length);
 }
 
-if (process.argv.includes("--help") || process.argv.includes("-h")) { usage(); process.exit(0); }
-if (process.argv.includes("--version") || process.argv.includes("-v")) { console.log(packageJson.version); process.exit(0); }
+if (process.argv.includes("--help") || process.argv.includes("-h")) {
+  usage();
+  process.exit(0);
+}
+if (process.argv.includes("--version") || process.argv.includes("-v")) {
+  console.log(packageJson.version);
+  process.exit(0);
+}
 
 const port = Number(optionValue("--port") ?? defaultPort);
 if (!Number.isInteger(port) || port < 1024 || port > 65_535) {
@@ -45,7 +51,7 @@ if (!Number.isInteger(port) || port < 1024 || port > 65_535) {
 const require = createRequire(import.meta.url);
 const nextBin = require.resolve("next/dist/bin/next");
 const buildId = join(packageRoot, ".next", "BUILD_ID");
-if (!existsSync(buildId)) {
+if (!existsSync(nextBin) || !existsSync(buildId)) {
   console.error("YTDB: the production application is missing. Run `npm run build` first.");
   process.exit(1);
 }
@@ -53,13 +59,24 @@ if (!existsSync(buildId)) {
 const token = randomBytes(32).toString("base64url");
 const fragment = `token=${encodeURIComponent(token)}&port=${port}`;
 const localOrigin = `http://127.0.0.1:${port}`;
-const browserUrl = process.argv.includes("--local") ? `${localOrigin}/#${fragment}` : `${hostedOrigin}/#${fragment}`;
+const browserUrl = process.argv.includes("--local")
+  ? `${localOrigin}/#${fragment}`
+  : `${hostedOrigin}/#${fragment}`;
 
-const child = spawn(process.execPath, [nextBin, "start", "--hostname", "127.0.0.1", "--port", String(port)], {
-  cwd: packageRoot,
-  env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1", YTDB_BRIDGE_TOKEN: token, YTDB_LOG_DIR: join(homedir(), ".ytdb", "activity") },
-  stdio: "inherit",
-});
+const child = spawn(
+  process.execPath,
+  [nextBin, "start", "--hostname", "127.0.0.1", "--port", String(port)],
+  {
+    cwd: packageRoot,
+    env: {
+      ...process.env,
+      NEXT_TELEMETRY_DISABLED: "1",
+      YTDB_BRIDGE_TOKEN: token,
+      YTDB_LOG_DIR: join(homedir(), ".ytdb", "activity"),
+    },
+    stdio: "inherit",
+  },
+);
 
 let stopped = false;
 child.once("exit", (code, signal) => {
@@ -67,21 +84,33 @@ child.once("exit", (code, signal) => {
   if (signal) process.kill(process.pid, signal);
   else process.exitCode = code ?? 1;
 });
-for (const signal of ["SIGINT", "SIGTERM"]) process.once(signal, () => child.kill(signal));
+
+for (const signal of ["SIGINT", "SIGTERM"]) {
+  process.once(signal, () => child.kill(signal));
+}
 
 async function waitUntilReady() {
   for (let attempt = 0; attempt < 100 && !stopped; attempt += 1) {
     try {
-      const response = await fetch(`${localOrigin}/api/health`, { headers: { Authorization: `Bearer ${token}` } });
+      const response = await fetch(`${localOrigin}/api/health`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (response.ok) return;
-    } catch {}
+    } catch {
+      // The server is still starting.
+    }
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
   throw new Error("the local server did not become ready");
 }
 
 function openBrowser(url) {
-  const command = platform() === "darwin" ? ["open", [url]] : platform() === "win32" ? ["cmd", ["/c", "start", "", url]] : ["xdg-open", [url]];
+  const command =
+    platform() === "darwin"
+      ? ["open", [url]]
+      : platform() === "win32"
+        ? ["cmd", ["/c", "start", "", url]]
+        : ["xdg-open", [url]];
   const opener = spawn(command[0], command[1], { detached: true, stdio: "ignore" });
   opener.unref();
 }

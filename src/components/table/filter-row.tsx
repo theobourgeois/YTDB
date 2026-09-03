@@ -25,9 +25,12 @@ import {
   OPERATOR_LIST,
   OPERATORS,
   operatorHasValue,
+  operatorResolvesToKey,
 } from "@/lib/filters";
+import { filterLookupFor } from "@/lib/foreign-keys";
 import { cn } from "@/lib/utils";
-import type { ColumnInfo, Filter, FilterOperator } from "@/lib/types";
+import type { ColumnInfo, Filter, FilterOperator, TableInfo } from "@/lib/types";
+import { FkFilterValue } from "./fk-filter-value";
 
 type Step = "column" | "operator" | "value";
 
@@ -35,15 +38,46 @@ type Props = {
   filter: Filter;
   columns: ColumnInfo[];
   autoStart?: boolean;
+  /** The table being filtered, and all loaded tables, for foreign-key lookups. */
+  table?: TableInfo;
+  tables?: TableInfo[];
+  connectionUrl?: string;
   onChange: (filter: Filter) => void;
   onRemove: () => void;
   onSettled?: () => void;
 };
 
+/** The settled value slot: the label when a row was picked, else the raw value. */
+function ValueButton({ filter, onClick }: { filter: Filter; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      title={filter.label ? `${filter.label} · ${filter.value}` : undefined}
+      className={cn(
+        "flex h-full max-w-72 items-center gap-1.5 px-1.5 font-mono hover:bg-foreground/5",
+        !filter.value && "text-muted-foreground",
+      )}
+      onClick={onClick}
+    >
+      {filter.label ? (
+        <>
+          <span className="max-w-40 truncate">{filter.label}</span>
+          <span className="max-w-28 truncate text-muted-foreground/60">{filter.value}</span>
+        </>
+      ) : (
+        <span className="max-w-48 truncate">{filter.value || "value"}</span>
+      )}
+    </button>
+  );
+}
+
 export function FilterRow({
   filter,
   columns,
   autoStart = false,
+  table,
+  tables,
+  connectionUrl,
   onChange,
   onRemove,
   onSettled,
@@ -61,6 +95,8 @@ export function FilterRow({
     ? selectedColumn.enumValues
     : [];
   const complete = isFilterComplete(filter);
+  const lookup = connectionUrl ? filterLookupFor(table, tables ?? [], filter.column) : null;
+  const pickable = Boolean(lookup) && operatorResolvesToKey(filter.operator);
 
   useEffect(() => {
     if (step === "column") columnInputRef.current?.focus();
@@ -115,7 +151,7 @@ export function FilterRow({
           open
           onOpenChange={(open) => handleOpenChange("column", open)}
           onValueChange={(column) => {
-            onChange({ ...filter, column: column ?? "", value: "" });
+            onChange({ ...filter, column: column ?? "", value: "", label: undefined });
             if (column) advance("operator");
           }}
         >
@@ -186,7 +222,25 @@ export function FilterRow({
       </Select>
 
       {operatorHasValue(filter.operator) &&
-        (enumValues.length ? (
+        (pickable && lookup ? (
+          step === "value" ? (
+            <FkFilterValue
+              connectionUrl={connectionUrl ?? ""}
+              foreignKey={lookup.foreignKey}
+              referencedTable={lookup.referencedTable}
+              keyColumn={lookup.keyColumn}
+              value={filter.value}
+              inputRef={valueRef}
+              onPick={(value, label) => {
+                onChange({ ...filter, value, label: label ?? undefined });
+                settle();
+              }}
+              onOpenChange={(open) => handleOpenChange("value", open)}
+            />
+          ) : (
+            <ValueButton filter={filter} onClick={() => setStep("value")} />
+          )
+        ) : enumValues.length ? (
           step === "value" ? (
             <Combobox
               items={enumValues}
@@ -194,7 +248,7 @@ export function FilterRow({
               open
               onOpenChange={(open) => handleOpenChange("value", open)}
               onValueChange={(value) => {
-                onChange({ ...filter, value: value ?? "" });
+                onChange({ ...filter, value: value ?? "", label: undefined });
                 settle();
               }}
             >
@@ -216,22 +270,15 @@ export function FilterRow({
               </ComboboxContent>
             </Combobox>
           ) : (
-            <button
-              type="button"
-              className={cn(
-                "h-full max-w-48 truncate px-1.5 font-mono hover:bg-foreground/5",
-                !filter.value && "text-muted-foreground",
-              )}
-              onClick={() => setStep("value")}
-            >
-              {filter.value || "value"}
-            </button>
+            <ValueButton filter={filter} onClick={() => setStep("value")} />
           )
         ) : step === "value" ? (
           <input
             ref={valueRef}
             value={filter.value}
-            onChange={(event) => onChange({ ...filter, value: event.target.value })}
+            onChange={(event) =>
+              onChange({ ...filter, value: event.target.value, label: undefined })
+            }
             onBlur={() => settle()}
             onKeyDown={(event) => {
               if (event.key !== "Enter") return;
@@ -246,16 +293,7 @@ export function FilterRow({
             style={{ width: `${Math.max(6, filter.value.length + 1)}ch` }}
           />
         ) : (
-          <button
-            type="button"
-            className={cn(
-              "h-full max-w-48 truncate px-1.5 font-mono hover:bg-foreground/5",
-              !filter.value && "text-muted-foreground",
-            )}
-            onClick={() => setStep("value")}
-          >
-            {filter.value || "value"}
-          </button>
+          <ValueButton filter={filter} onClick={() => setStep("value")} />
         ))}
 
       <Button

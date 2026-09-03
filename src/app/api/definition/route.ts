@@ -3,7 +3,7 @@ import { jsonHandler, requireString, requireTable } from "../_lib";
 
 type Body = { connectionUrl?: string; table?: unknown };
 
-export const POST = jsonHandler<Body>(async (body) => {
+export const POST = jsonHandler<Body>("definition", async (body) => {
   const url = requireString(body.connectionUrl, "connectionUrl");
   return getTableDefinition(url, requireTable(body.table));
 });
