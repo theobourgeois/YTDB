@@ -21,8 +21,25 @@ async function post<T>(path: string, body: unknown, signal?: AbortSignal): Promi
     body: JSON.stringify(body),
     signal,
   });
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error ?? response.statusText);
+  const text = await response.text();
+  if (!text) {
+    throw new Error(
+      `YTDB bridge returned an empty response (HTTP ${response.status}). Restart YTDB to update the local bridge.`,
+    );
+  }
+  let data: unknown;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new Error(`YTDB bridge returned an invalid response (HTTP ${response.status}).`);
+  }
+  if (!response.ok) {
+    const error =
+      data && typeof data === "object" && "error" in data && typeof data.error === "string"
+        ? data.error
+        : response.statusText;
+    throw new Error(error || `YTDB bridge request failed with HTTP ${response.status}.`);
+  }
   return data as T;
 }
 
