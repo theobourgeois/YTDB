@@ -32,6 +32,9 @@ Do not change the domain's nameservers. Vercel provisions HTTPS after the record
 `{"error":"Database API is local-only"}`. Then `npx @theobourgeois/ytdb` should open a browser tab connected
 to the authenticated local bridge.
 
+Run the short `npx` command outside this package's source checkout. From inside the repository,
+use `npx --yes --package=@theobourgeois/ytdb@latest -- ytdb` to force npm to use the registry package.
+
 Browser storage cannot cross origins. Export config from the old local origin before removing
 its hostname mapping, then import that file at the hosted origin.
 

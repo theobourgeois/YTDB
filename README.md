@@ -41,6 +41,10 @@ Start YTDB without cloning the repository:
 npx @theobourgeois/ytdb
 ```
 
+Run that command outside a YTDB source checkout. Inside this repository, npm treats the local
+package as already installed; use `npx --yes --package=@theobourgeois/ytdb@latest -- ytdb`
+when you specifically want to test the published package from here.
+
 The command starts an authenticated database bridge bound to `127.0.0.1` and opens
 [ytdb.theobourgeois.com](https://ytdb.theobourgeois.com). Select **New**, then enter a name and PostgreSQL connection URL:
 
