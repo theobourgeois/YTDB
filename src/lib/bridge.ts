@@ -4,7 +4,13 @@ const DEFAULT_BRIDGE_PORT = 4371;
 export type BridgeConfig = { origin: string; token: string };
 
 function isLoopbackHostname(hostname: string): boolean {
-  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]";
+  return (
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname === "[::1]" ||
+    hostname === "local.ytdb" ||
+    hostname === "local.dbstudio"
+  );
 }
 
 export function isHostedUi(): boolean {
