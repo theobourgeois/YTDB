@@ -1,36 +1,103 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# DB Studio
 
-## Getting Started
+A fast, local-first PostgreSQL browser for exploring and editing databases without leaving the keyboard.
 
-First, run the development server:
+![DB Studio browsing a fictional products table](public/screenshots/db-studio-explorer.png)
+
+## What it does
+
+- Browse tables and views across multiple PostgreSQL schemas
+- Search, filter, sort, and paginate rows
+- Edit cells inline and delete selected rows
+- Follow foreign keys, inspect related records, and peek at complete rows
+- Pin, hide, reorder, and resize columns
+- Export the current result set as CSV or JSON
+- View table and view definitions
+- Switch between multiple saved connections and share layouts between them
+- Import or export your workspace configuration
+- Choose from six built-in themes
+
+![DB Studio's new connection dialog](public/screenshots/db-studio-connection.png)
+
+The screenshots use a disposable local database with fictional product and company names. No production data or credentials are included in this repository.
+
+## Run locally
+
+### Requirements
+
+- Node.js 20.9 or newer
+- npm
+- A PostgreSQL database you can reach from your machine
+
+Install dependencies and start the development server:
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://127.0.0.1:4371](http://127.0.0.1:4371), select **New**, and enter a name and PostgreSQL connection URL:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```text
+postgresql://user:password@host:5432/database
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+No environment variables are required for the current feature set. The Convex scaffold is optional and the UI still runs when `NEXT_PUBLIC_CONVEX_URL` is unset.
 
-## Learn More
+### Optional friendly hostname on macOS
 
-To learn more about Next.js, take a look at the following resources:
+The included setup script maps `http://local.dbstudio` to the development server. It updates `/etc/hosts` and installs a small launch daemon, so macOS will ask for an administrator password.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+npm run setup:local
+npm run dev
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Open [http://local.dbstudio](http://local.dbstudio). To remove the hostname and launch daemon later:
 
-## Deploy on Vercel
+```bash
+npm run setup:local -- --undo
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Useful commands
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+npm run dev          # development server on 127.0.0.1:4371
+npm run build        # production build
+npm start            # serve the production build
+npm run lint         # ESLint
+npm run dev:convex   # optional Convex development process
+```
+
+## Security model
+
+DB Studio is intended to run on your own machine, not as a public hosted service.
+
+- Connection URLs are stored in your browser's `localStorage`.
+- Each database request sends the selected URL to your local Next.js server, which connects to PostgreSQL.
+- Exported DB Studio configuration files include connection URLs. Treat those files like passwords and never commit them.
+- The app supports writes and row deletion. Use a read-only or least-privilege PostgreSQL role when you do not need editing.
+- `.env*` files remain ignored by Git, with only the blank `.env.example` template allowed into the repository.
+
+## Project structure
+
+```text
+src/
+  app/
+    api/                         PostgreSQL route handlers
+    [connectionId]/              database explorer routes
+  components/
+    connections/                 connection and config management
+    explorer/                    schemas, tables, and navigation
+    table/                       grid, filters, editors, and pagination
+  lib/
+    db/                          server-only PostgreSQL access
+    store/                       persisted browser state
+  hooks/                         shared React hooks
+scripts/                         optional local.dbstudio setup
+convex/                          optional Convex scaffold
+```
+
+## Tech stack
+
+[Next.js 16](https://nextjs.org/) · [React 19](https://react.dev/) · [PostgreSQL](https://www.postgresql.org/) · [Tailwind CSS 4](https://tailwindcss.com/) · [Base UI](https://base-ui.com/) · [Zustand](https://zustand.docs.pmnd.rs/) · [Convex](https://www.convex.dev/)
