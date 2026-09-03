@@ -1,5 +1,5 @@
 {
-  "name": "ytdb",
+  "name": "@theobourgeois/ytdb",
   "version": "0.1.0",
   "description": "A fast, local-first PostgreSQL browser.",
   "homepage": "https://ytdb.theobourgeois.com",

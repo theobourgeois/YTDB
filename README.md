@@ -35,10 +35,10 @@ The screenshots use a disposable local database with fictional product and compa
 - npm
 - A PostgreSQL database you can reach from your machine
 
-Once the package is published, start YTDB without cloning the repository:
+Start YTDB without cloning the repository:
 
 ```bash
-npx ytdb
+npx @theobourgeois/ytdb
 ```
 
 The command starts an authenticated database bridge bound to `127.0.0.1` and opens
@@ -75,7 +75,7 @@ npm run dev:convex   # optional Convex development process
 
 ## Security model
 
-The UI is hosted, but PostgreSQL access is performed by the loopback-only process started by `npx ytdb`.
+The UI is hosted, but PostgreSQL access is performed by the loopback-only process started by `npx @theobourgeois/ytdb`.
 
 - Connection URLs are stored in browser `localStorage` for `ytdb.theobourgeois.com`.
 - Each database request goes directly from the hosted UI to `127.0.0.1`; the public deployment refuses database API requests.
@@ -100,7 +100,7 @@ src/
     db/                          server-only PostgreSQL access
     store/                       persisted browser state
   hooks/                         shared React hooks
-bin/                             `npx ytdb` launcher
+bin/                             `npx @theobourgeois/ytdb` launcher
 convex/                          optional Convex scaffold
 ```
 

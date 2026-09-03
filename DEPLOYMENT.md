@@ -1,6 +1,6 @@
 # Publishing YTDB
 
-Publish the `ytdb` npm package first, then deploy the Next.js UI at
+Publish the `@theobourgeois/ytdb` npm package first, then deploy the Next.js UI at
 `https://ytdb.theobourgeois.com` so the hosted UI never gets ahead of the local bridge API.
 
 ## npm
@@ -10,8 +10,9 @@ npm login
 npm publish
 ```
 
-The unscoped `ytdb` package name is available as of September 3, 2026. The `prepack` script
-builds the production app automatically. Increment the version before every later release.
+npm rejects the unscoped `ytdb` name as too similar to existing packages, so YTDB uses the
+official `@theobourgeois` scope. The `prepack` script builds the production app automatically.
+Increment the version before every later release.
 
 ## Vercel and Squarespace DNS
 
@@ -28,7 +29,7 @@ Do not change the domain's nameservers. Vercel provisions HTTPS after the record
 ## Verify
 
 `curl -i https://ytdb.theobourgeois.com/api/health` must return a 404 with
-`{"error":"Database API is local-only"}`. Then `npx ytdb` should open a browser tab connected
+`{"error":"Database API is local-only"}`. Then `npx @theobourgeois/ytdb` should open a browser tab connected
 to the authenticated local bridge.
 
 Browser storage cannot cross origins. Export config from the old local origin before removing
