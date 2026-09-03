@@ -1,9 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" fill="none" role="img" aria-label="YTDB">
   <rect width="180" height="180" rx="40" fill="#0A0A0A"/>
   <g stroke="#FAFAFA" stroke-width="12" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M53 48 90 93 127 48"/>
-    <path d="M90 93v20"/>
-    <path d="M59 126h62"/>
-    <path d="M59 144h62"/>
+    <path d="M48 45 90 87 132 45"/>
+    <path d="M90 87v78"/>
+    <path d="M54 115h72"/>
+    <path d="M54 138h72"/>
   </g>
 </svg>
