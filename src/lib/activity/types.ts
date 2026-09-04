@@ -8,6 +8,7 @@ export const API_ACTIONS = [
   "query",
   "cell.update",
   "rows.insert",
+  "rows.update",
   "rows.delete",
   "related",
   "lookup",

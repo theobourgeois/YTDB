@@ -8,6 +8,8 @@ import type {
   RowDeleteResult,
   RowInsert,
   RowInsertResult,
+  RowUpdate,
+  RowUpdateResult,
   RowsQuery,
   RowsResult,
   SqlQueryResult,
@@ -61,6 +63,9 @@ export const api = {
 
   insertRow: (connectionUrl: string, insertion: RowInsert, signal?: AbortSignal) =>
     post<RowInsertResult>("/api/insert-row", { connectionUrl, insertion }, signal),
+
+  updateRow: (connectionUrl: string, update: RowUpdate, signal?: AbortSignal) =>
+    post<RowUpdateResult>("/api/update-row", { connectionUrl, update }, signal),
 
   deleteRows: (connectionUrl: string, deletion: RowDelete, signal?: AbortSignal) =>
     post<RowDeleteResult>("/api/delete-rows", { connectionUrl, deletion }, signal),

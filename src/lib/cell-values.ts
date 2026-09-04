@@ -61,6 +61,25 @@ export function parseDraft(column: ColumnInfo, kind: EditorKind, draft: string):
   return draft;
 }
 
+/**
+ * The editable text for an existing value. JSON is pretty-printed so a stored
+ * one-liner is readable, and `date` swaps the space Postgres returns for the
+ * `T` that datetime inputs require.
+ */
+export function draftFromValue(value: Cell, kind: EditorKind): string {
+  if (value === null) return "";
+  if (kind === "json") {
+    try {
+      const parsed = typeof value === "string" ? JSON.parse(value) : value;
+      return JSON.stringify(parsed, null, 2);
+    } catch {
+      return typeof value === "string" ? JSON.stringify(value) : String(value);
+    }
+  }
+  if (kind === "date" && typeof value === "string") return value.replace(" ", "T");
+  return String(value);
+}
+
 function twoDigits(value: number): string {
   return String(value).padStart(2, "0");
 }

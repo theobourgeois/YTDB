@@ -118,7 +118,8 @@ export function TableView({ table }: { table: TableRef }) {
     router.push(tableHref(connection.id, nextTable));
   }
 
-  const insertReason = !info
+  /** Why this relation cannot be written to at all, or null when it can. */
+  const writeReason = !info
     ? "Table metadata is unavailable"
     : info.kind !== "table"
       ? "Views and foreign tables are read-only"
@@ -176,8 +177,8 @@ export function TableView({ table }: { table: TableRef }) {
               <Button
                 variant="outline"
                 size="sm"
-                disabled={Boolean(insertReason)}
-                title={insertReason ?? "Insert a new row"}
+                disabled={Boolean(writeReason)}
+                title={writeReason ?? "Insert a new row"}
                 onClick={() => setInserting(true)}
               >
                 <PlusIcon data-icon="inline-start" />
@@ -251,8 +252,13 @@ export function TableView({ table }: { table: TableRef }) {
             onColumnWidthsChange={(columnWidths) => setState({ columnWidths })}
             onTogglePin={togglePin}
             onToggleHidden={toggleHidden}
-            onInsertRow={insertReason ? undefined : () => setInserting(true)}
+            onInsertRow={writeReason ? undefined : () => setInserting(true)}
             onUpdateCell={(update) => api.updateCell(connection.url, update)}
+            onUpdateRow={
+              writeReason
+                ? undefined
+                : (update) => api.updateRow(connection.url, { table, ...update })
+            }
             onDeleteRows={async (primaryKeys) => {
               const result = await api.deleteRows(connection.url, {
                 table,

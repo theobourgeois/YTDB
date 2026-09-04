@@ -19,6 +19,7 @@ import {
   TEMPORAL_TYPES,
   choiceDraft,
   choiceItems,
+  draftFromValue,
   editorKind,
   formattedTemporalValue,
   isChoiceKind,
@@ -49,20 +50,6 @@ type Props = {
 
 export function isInlineChoiceEditor(column: ColumnInfo): boolean {
   return isChoiceKind(editorKind(column));
-}
-
-function initialDraft(value: Cell, kind: EditorKind): string {
-  if (value === null) return "";
-  if (kind === "json") {
-    try {
-      const parsed = typeof value === "string" ? JSON.parse(value) : value;
-      return JSON.stringify(parsed, null, 2);
-    } catch {
-      return typeof value === "string" ? JSON.stringify(value) : String(value);
-    }
-  }
-  if (kind === "date" && typeof value === "string") return value.replace(" ", "T");
-  return String(value);
 }
 
 function InlineChoiceEditor({
@@ -192,7 +179,7 @@ function PopoverCellEditor({
   onSave,
   kind,
 }: Props & { kind: EditorKind }) {
-  const [draft, setDraft] = useState(() => initialDraft(value, kind));
+  const [draft, setDraft] = useState(() => draftFromValue(value, kind));
   const [isNull, setIsNull] = useState(value === null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);

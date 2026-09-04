@@ -119,6 +119,8 @@ export function summarizeResult(
       return { updated: value?.row ? 1 : 0 };
     case "rows.insert":
       return { inserted: value?.row ? 1 : 0 };
+    case "rows.update":
+      return { updated: value?.updated ?? 0 };
     case "rows.delete":
       return { deleted: value?.deleted ?? 0 };
     case "related": {

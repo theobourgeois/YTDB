@@ -135,6 +135,22 @@ export type RowInsertResult = {
   row: Cell[];
 };
 
+export type RowUpdate = {
+  table: TableRef;
+  primaryKey: Record<string, Cell>;
+  /** Only the columns present are written; the rest keep the value they had. */
+  values: Record<string, Cell>;
+  /** Columns reset to their database default rather than given a value. */
+  defaults?: string[];
+};
+
+export type RowUpdateResult = {
+  /** The row after the update, in the table's column order. */
+  row: Cell[];
+  /** How many columns the statement assigned. */
+  updated: number;
+};
+
 export type RowDelete = {
   table: TableRef;
   primaryKeys: Record<string, Cell>[];

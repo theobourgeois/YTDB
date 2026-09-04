@@ -23,6 +23,7 @@ import {
   FileSpreadsheetIcon,
   Link2Icon,
   LoaderCircleIcon,
+  Maximize2Icon,
   MinusIcon,
   PinIcon,
   PlusIcon,
@@ -62,6 +63,8 @@ import {
   type Filter,
   type ForeignKey,
   type RowDeleteResult,
+  type RowUpdate,
+  type RowUpdateResult,
   type Sort,
   type TableInfo,
   type TableRef,
@@ -81,6 +84,7 @@ import { httpUrl } from "@/lib/urls";
 import { CellEditor, isInlineChoiceEditor } from "./cell-editor";
 import { FkCellValue } from "./fk-cell";
 import { HighlightMatch } from "./highlight-match";
+import { RowEditPanel, type RowEditTarget } from "./row-edit-panel";
 import { RowPeek, type PeekState } from "./row-peek";
 
 type FkContext = {
@@ -113,6 +117,8 @@ type Props = {
   /** Omitted when the relation cannot take new rows. */
   onInsertRow?: () => void;
   onUpdateCell: (update: CellUpdate) => Promise<CellUpdateResult>;
+  /** Omitted when the relation cannot be edited, which hides the expand control. */
+  onUpdateRow?: (update: Omit<RowUpdate, "table">) => Promise<RowUpdateResult>;
   onDeleteRows: (primaryKeys: Record<string, Cell>[]) => Promise<RowDeleteResult>;
 };
 
@@ -294,6 +300,7 @@ export function DataGrid({
   onToggleHidden,
   onInsertRow,
   onUpdateCell,
+  onUpdateRow,
   onDeleteRows,
 }: Props) {
   const [gridRowsState, setGridRowsState] = useState<GridRowsState>(() => ({
@@ -306,6 +313,7 @@ export function DataGrid({
   const [activeCell, setActiveCell] = useState<ActiveCell | null>(null);
   const [editingCell, setEditingCell] = useState<EditingCell | null>(null);
   const [peek, setPeek] = useState<PeekState | null>(null);
+  const [editRow, setEditRow] = useState<RowEditTarget | null>(null);
   const [copied, setCopied] = useState<"cell" | ExportFormat | null>(null);
   const [pendingDelete, setPendingDelete] = useState<number[] | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -400,7 +408,7 @@ export function DataGrid({
     if (!pinnedSet.has(column)) return width;
     const measured = freezeLeft[column];
     if (typeof measured === "number") return { ...width, left: measured };
-    let left = 40;
+    let left = 64;
     for (const pinned of pinnedVisible) {
       if (pinned === column) break;
       left += columnWidths[pinned] ?? 160;
@@ -464,6 +472,7 @@ export function DataGrid({
     setActiveCell(null);
     setEditingCell(null);
     setPeek(null);
+    setEditRow(null);
     onSortChange(nextSort(column));
   }
 
@@ -626,6 +635,17 @@ export function DataGrid({
     return null;
   }
 
+  /**
+   * Whether this relation supports whole-row editing at all. Structural, so the
+   * expand control does not appear and disappear as pages load: a table that
+   * cannot be edited never shows one, and a loading one shows a disabled one.
+   */
+  function canEditRows(): boolean {
+    if (!onUpdateRow || !fk?.table) return false;
+    if (tableKind !== "table") return false;
+    return [...columnInfo.values()].some((item) => item.isPrimaryKey);
+  }
+
   function primaryKeyForRow(row: Cell[]): Record<string, Cell> {
     return Object.fromEntries(
       columns.flatMap((name, index) =>
@@ -661,6 +681,7 @@ export function DataGrid({
       setActiveCell(null);
       setEditingCell(null);
       setPeek(null);
+      setEditRow(null);
       setPendingDelete(null);
     } catch (error) {
       setDeleteError(error instanceof Error ? error.message : String(error));
@@ -735,6 +756,20 @@ export function DataGrid({
     setEditingCell(null);
   }
 
+  async function saveEditedRow(update: Omit<RowUpdate, "table">) {
+    if (!onUpdateRow || !editRow) throw new Error("This row is no longer available");
+    const result = await onUpdateRow(update);
+    const { rowIndex } = editRow;
+    setGridRowsState((current) => ({
+      ...current,
+      current: current.current.map((currentRow, index) =>
+        index === rowIndex ? result.row : currentRow,
+      ),
+    }));
+    setEditRow(null);
+    return result;
+  }
+
   function openPeek(anchor: HTMLElement, relation: ForeignKey, row: Cell[]) {
     const key = keyValuesForForeignKey(relation, columns, row);
     if (!key) return;
@@ -784,6 +819,7 @@ export function DataGrid({
         ? [contextCell.rowIndex]
         : [];
   const cannotDelete = deleteReason();
+  const editableRows = canEditRows();
   const pendingDeleteCount = pendingDelete?.length ?? 0;
   const editingColumn = editingCell ? columns[editingCell.cellIndex] : undefined;
   const editingInfo = editingColumn ? columnInfo.get(editingColumn) : undefined;
@@ -870,21 +906,25 @@ export function DataGrid({
                   <th
                     ref={checkboxHeaderRef}
                     className={cn(
-                      "h-8 w-10 border-b border-r px-2 font-normal text-muted-foreground",
+                      "h-8 w-16 border-b border-r pr-1.5 pl-2 font-normal text-muted-foreground",
                       checkboxFreezeClass("header"),
                     )}
                   >
-                    <SelectionCheckbox
-                      checked={allSelected}
-                      mixed={someSelected}
-                      label={
-                        allSelected
-                          ? "Clear all rows on this page"
-                          : "Select all rows on this page"
-                      }
-                      className="mx-auto"
-                      onClick={toggleAllRows}
-                    />
+                    <div className="flex items-center gap-1">
+                      <span className="flex w-6 shrink-0 items-center justify-center">
+                        <SelectionCheckbox
+                          checked={allSelected}
+                          mixed={someSelected}
+                          label={
+                            allSelected
+                              ? "Clear all rows on this page"
+                              : "Select all rows on this page"
+                          }
+                          onClick={toggleAllRows}
+                        />
+                      </span>
+                      {editableRows && <span aria-hidden className="size-5 shrink-0" />}
+                    </div>
                   </th>
                   {visibleColumns.map((column) => {
                     const cellIndex = columns.indexOf(column);
@@ -987,27 +1027,47 @@ export function DataGrid({
                     >
                       <td
                         className={cn(
-                          "relative h-7 w-10 border-b border-r px-2 text-right text-muted-foreground tabular-nums",
+                          "h-7 w-16 border-b border-r pr-1.5 pl-2 text-muted-foreground tabular-nums",
                           checkboxFreezeClass("body"),
                         )}
                       >
-                        <span
-                          className={cn(
-                            "transition-opacity group-hover/row:opacity-0",
-                            selected && "opacity-0",
+                        <div className="flex items-center gap-1">
+                          <span className="relative flex w-6 shrink-0 items-center justify-center">
+                            <span
+                              className={cn(
+                                "transition-opacity group-hover/row:opacity-0",
+                                selected && "opacity-0",
+                              )}
+                            >
+                              {rowIndex + 1}
+                            </span>
+                            <SelectionCheckbox
+                              checked={selected}
+                              label={`${selected ? "Deselect" : "Select"} row ${rowIndex + 1}`}
+                              onClick={(event) => toggleRow(rowIndex, event)}
+                              className={cn(
+                                "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2",
+                                selected ? "opacity-100" : "opacity-0 group-hover/row:opacity-100",
+                              )}
+                            />
+                          </span>
+                          {editableRows && (
+                            <button
+                              type="button"
+                              aria-label={`Expand row ${rowIndex + 1}`}
+                              title={
+                                dimmed
+                                  ? "Wait for the table to finish loading"
+                                  : `Expand row ${rowIndex + 1}`
+                              }
+                              disabled={dimmed}
+                              onClick={() => setEditRow({ rowIndex, row, columns })}
+                              className="flex size-5 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground opacity-0 outline-none transition-[opacity,background-color,color] hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring/60 disabled:pointer-events-none group-hover/row:opacity-100"
+                            >
+                              <Maximize2Icon className="size-3" />
+                            </button>
                           )}
-                        >
-                          {rowIndex + 1}
-                        </span>
-                        <SelectionCheckbox
-                          checked={selected}
-                          label={`${selected ? "Deselect" : "Select"} row ${rowIndex + 1}`}
-                          onClick={(event) => toggleRow(rowIndex, event)}
-                          className={cn(
-                            "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2",
-                            selected ? "opacity-100" : "opacity-0 group-hover/row:opacity-100",
-                          )}
-                        />
+                        </div>
                       </td>
                       {visibleColumns.map((column) => {
                         const cellIndex = columns.indexOf(column);
@@ -1248,6 +1308,16 @@ export function DataGrid({
             setPeek(null);
             fk.onOpenTable(nextTable, filters);
           }}
+        />
+      )}
+      {fk?.table && onUpdateRow && (
+        <RowEditPanel
+          target={editRow}
+          table={fk.table}
+          tables={fk.tables}
+          connectionUrl={fk.connectionUrl}
+          onOpenChange={(open) => !open && setEditRow(null)}
+          onUpdate={saveEditedRow}
         />
       )}
       <Dialog
