@@ -25,6 +25,7 @@ import {
   LoaderCircleIcon,
   Maximize2Icon,
   MinusIcon,
+  PencilIcon,
   PinIcon,
   PlusIcon,
   SquareArrowOutUpRightIcon,
@@ -810,6 +811,9 @@ export function DataGrid({
   const contextHiddenCount = hiddenColumns.filter((column) => columns.includes(column)).length;
   const contextCanHide = Boolean(contextColumn) && columns.length - contextHiddenCount > 1;
   const contextFk = contextColumn ? foreignKeyForColumn(fk?.table, contextColumn) : undefined;
+  const contextEditReason = contextIsRow
+    ? readOnlyReason(contextColumn ? columnInfo.get(contextColumn) : undefined)
+    : "Select a cell to edit";
   const contextFkKey =
     contextFk && contextRow ? keyValuesForForeignKey(contextFk, columns, contextRow) : null;
   const contextDeleteIndices =
@@ -1180,6 +1184,26 @@ export function DataGrid({
                   {contextColumn}
                 </span>
               )}
+            </ContextMenuItem>
+            <ContextMenuItem
+              disabled={Boolean(contextEditReason)}
+              title={contextEditReason ?? undefined}
+              onClick={() => {
+                if (!contextCell || contextEditReason) return;
+                const anchor = scrollRef.current?.querySelector<HTMLElement>(
+                  `td[data-row-index="${contextCell.rowIndex}"][data-cell-index="${contextCell.cellIndex}"]`,
+                );
+                if (!anchor) return;
+                setPeek(null);
+                setEditingCell({
+                  rowIndex: contextCell.rowIndex,
+                  cellIndex: contextCell.cellIndex,
+                  anchor,
+                });
+              }}
+            >
+              <PencilIcon />
+              Edit cell
             </ContextMenuItem>
             <ContextMenuItem
               disabled={!contextUrl}

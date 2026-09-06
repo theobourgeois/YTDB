@@ -7,7 +7,7 @@ import {
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
-import { SearchIcon, XIcon } from "lucide-react";
+import { RefreshCwIcon, SearchIcon, XIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { rankFuzzy } from "@/lib/fuzzy";
 import { newFilter } from "@/lib/filters";
@@ -26,6 +26,9 @@ type Props = {
   connectionUrl?: string;
   onFiltersChange: (filters: Filter[]) => void;
   onSearchChange: (search: string) => void;
+  /** Re-runs the current row query. Omitted when there is nothing to refresh. */
+  onRefresh?: () => void;
+  refreshing?: boolean;
 };
 
 type MenuItem =
@@ -63,6 +66,8 @@ export function FilterBar({
   connectionUrl,
   onFiltersChange,
   onSearchChange,
+  onRefresh,
+  refreshing = false,
 }: Props) {
   const rootRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -216,11 +221,11 @@ export function FilterBar({
   const showHint = !search && filters.length === 0 && !open;
 
   return (
-    <div className="border-b px-4 py-2">
+    <div className="flex items-start gap-1.5 border-b px-4 py-2">
       <div
         ref={rootRef}
         className={cn(
-          "relative flex min-h-8 flex-wrap items-center gap-1 rounded-lg border border-input bg-transparent bg-clip-padding px-2 py-1 text-sm transition-colors",
+          "relative flex min-h-8 min-w-0 flex-1 flex-wrap items-center gap-1 rounded-lg border border-input bg-transparent bg-clip-padding px-2 py-1 text-sm transition-colors",
           "focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 dark:bg-input/30",
         )}
         onClick={() => {
@@ -378,6 +383,21 @@ export function FilterBar({
           </div>
         ) : null}
       </div>
+
+      {onRefresh ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          className="mt-0.5 shrink-0 text-muted-foreground"
+          aria-label="Refresh rows"
+          title="Refresh rows"
+          disabled={refreshing}
+          onClick={onRefresh}
+        >
+          <RefreshCwIcon className={cn(refreshing && "animate-spin")} />
+        </Button>
+      ) : null}
     </div>
   );
 }

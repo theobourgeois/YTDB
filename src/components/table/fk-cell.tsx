@@ -24,7 +24,6 @@ export function FkCellValue({ value, label, referenced, query = "", onOpen }: Pr
       aria-label={`View referenced row in ${referenced}`}
       title={`${showLabel ? `${label} · ` : ""}${text} → ${referenced}`}
       onClick={onOpen}
-      onDoubleClick={(event) => event.stopPropagation()}
       className="inline-flex min-w-0 max-w-full cursor-pointer items-center gap-1 text-left outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/60"
     >
       <Link2Icon className="size-3 shrink-0 text-muted-foreground/70" />

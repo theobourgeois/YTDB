@@ -207,6 +207,11 @@ export function TableView({ table }: { table: TableRef }) {
           connectionUrl={connection.url}
           onFiltersChange={(filters) => setState({ filters, page: 0 })}
           onSearchChange={(search) => setState({ search, page: 0 })}
+          onRefresh={() => {
+            rows.reload();
+            tables.reload();
+          }}
+          refreshing={rows.loading}
         />
       ) : null}
 

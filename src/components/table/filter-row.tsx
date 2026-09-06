@@ -19,6 +19,7 @@ import {
   SelectLabel,
   SelectTrigger,
 } from "@/components/ui/select";
+import { choiceItems, editorKind, isChoiceKind } from "@/lib/cell-values";
 import {
   isFilterComplete,
   OPERATOR_GROUPS,
@@ -91,17 +92,20 @@ export function FilterRow({
   const valueRef = useRef<HTMLInputElement>(null);
   const columnNames = columns.map((column) => column.name);
   const selectedColumn = columns.find((column) => column.name === filter.column);
-  const enumValues = Array.isArray(selectedColumn?.enumValues)
-    ? selectedColumn.enumValues
-    : [];
+  /** Enum and boolean columns have a closed set of values, so they get a dropdown. */
+  const columnKind = selectedColumn ? editorKind(selectedColumn) : null;
+  const choiceValues =
+    selectedColumn && columnKind && isChoiceKind(columnKind)
+      ? choiceItems(columnKind, selectedColumn).map((item) => item.value)
+      : [];
   const complete = isFilterComplete(filter);
   const lookup = connectionUrl ? filterLookupFor(table, tables ?? [], filter.column) : null;
   const pickable = Boolean(lookup) && operatorResolvesToKey(filter.operator);
 
   useEffect(() => {
     if (step === "column") columnInputRef.current?.focus();
-    if (step === "value" && enumValues.length === 0) valueRef.current?.focus();
-  }, [step, enumValues.length]);
+    if (step === "value" && choiceValues.length === 0) valueRef.current?.focus();
+  }, [step, choiceValues.length]);
 
   function advance(next: Step | null) {
     advancing.current = true;
@@ -240,10 +244,10 @@ export function FilterRow({
           ) : (
             <ValueButton filter={filter} onClick={() => setStep("value")} />
           )
-        ) : enumValues.length ? (
+        ) : choiceValues.length ? (
           step === "value" ? (
             <Combobox
-              items={enumValues}
+              items={choiceValues}
               value={filter.value || null}
               open
               onOpenChange={(open) => handleOpenChange("value", open)}
@@ -259,7 +263,7 @@ export function FilterRow({
                 className="h-6 min-h-6 w-40 border-0 bg-transparent font-mono shadow-none dark:bg-transparent"
               />
               <ComboboxContent>
-                <ComboboxEmpty>No enum values</ComboboxEmpty>
+                <ComboboxEmpty>No values</ComboboxEmpty>
                 <ComboboxList>
                   {(value: string) => (
                     <ComboboxItem key={value} value={value}>

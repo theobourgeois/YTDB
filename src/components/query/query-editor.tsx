@@ -5,7 +5,7 @@ import CodeMirror from "@uiw/react-codemirror";
 import { indentWithTab } from "@codemirror/commands";
 import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { PostgreSQL, sql, type SQLNamespace } from "@codemirror/lang-sql";
-import { EditorState } from "@codemirror/state";
+import { EditorState, Prec } from "@codemirror/state";
 import { EditorView, keymap } from "@codemirror/view";
 import { tags } from "@lezer/highlight";
 
@@ -26,6 +26,7 @@ const editorTheme = [
     ".cm-scroller": {
       fontFamily: "var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace",
       lineHeight: "1.6",
+      overflow: "auto",
     },
     ".cm-content": { padding: "10px 0", caretColor: "var(--foreground)" },
     ".cm-line": { padding: "0 16px 0 8px" },
@@ -97,23 +98,28 @@ export const QueryEditor = forwardRef<
       sql({ dialect: PostgreSQL, schema }),
       EditorState.changeFilter.of((transaction) => transaction.newDoc.length <= maxLength),
       EditorView.contentAttributes.of({ "aria-label": "SQL query editor" }),
-      keymap.of([
-        {
-          key: "Mod-Enter",
-          run: () => {
-            runRef.current();
-            return true;
+      // react-codemirror appends these after basicSetup, which makes them lower
+      // precedence than the default keymap's own Mod-Enter binding.
+      Prec.highest(
+        keymap.of([
+          {
+            key: "Mod-Enter",
+            run: () => {
+              runRef.current();
+              return true;
+            },
           },
-        },
-        {
-          key: "Mod-s",
-          run: () => {
-            saveRef.current();
-            return true;
+          {
+            key: "Mod-s",
+            preventDefault: true,
+            run: () => {
+              saveRef.current();
+              return true;
+            },
           },
-        },
-        indentWithTab,
-      ]),
+        ]),
+      ),
+      keymap.of([indentWithTab]),
     ],
     [maxLength, schema],
   );
@@ -138,6 +144,7 @@ export const QueryEditor = forwardRef<
 
   return (
     <CodeMirror
+      className="h-full"
       value={value}
       height="100%"
       theme={editorTheme}
