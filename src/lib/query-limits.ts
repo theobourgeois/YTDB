@@ -14,7 +14,7 @@ export const QUERY_RESULT_LIMIT = 500;
 export const QUERY_STATEMENT_TIMEOUT_MS = 60_000;
 
 /** Keeps oversized requests and persisted drafts out of the browser and API. */
-export const MAX_QUERY_LENGTH = 50_000;
+export const MAX_QUERY_LENGTH = 500_000;
 
 export function queryErrorMessage(error: unknown): string {
   if (isQueryTimeout(error)) {

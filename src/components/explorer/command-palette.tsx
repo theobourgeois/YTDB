@@ -15,6 +15,7 @@ import { tableKey, type TableRef } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useExplorerContext } from "./explorer-provider";
 import { useSqlEditor } from "./use-sql-editor";
+import { useSwitchConnection } from "./use-switch-connection";
 
 type PaletteMode = "commands" | "themes";
 
@@ -73,6 +74,7 @@ export function CommandPalette() {
   const params = useParams<{ connectionId: string; schema?: string; table?: string }>();
   const { connection, tables } = useExplorerContext();
   const sqlEditor = useSqlEditor();
+  const switchConnection = useSwitchConnection();
   const addConnection = useConnections((state) => state.add);
   const [browse, setBrowse] = useBrowseState(connection.id);
   const [open, setOpen] = useState(false);
@@ -101,6 +103,16 @@ export function CommandPalette() {
         enabled: true,
         shortcut: SHORTCUTS.sqlEditor,
         run: () => sqlEditor.toggle(),
+      },
+      {
+        id: "switch-connection",
+        title: switchConnection.next
+          ? `Switch Connection (${switchConnection.next.name})`
+          : "Switch Connection",
+        keywords: ["database", "env", "environment", "next", "cycle", "other"],
+        enabled: switchConnection.enabled,
+        shortcut: SHORTCUTS.switchConnection,
+        run: () => void switchConnection.run(),
       },
       {
         id: "search-tables",
@@ -204,7 +216,17 @@ export function CommandPalette() {
         run: () => setConnectionDialogOpen(true),
       },
     ];
-  }, [browse.pinnedTables, connection.id, pinned, setBrowse, sqlEditor, table, tableState?.search, tables]);
+  }, [
+    browse.pinnedTables,
+    connection.id,
+    pinned,
+    setBrowse,
+    sqlEditor,
+    switchConnection,
+    table,
+    tableState?.search,
+    tables,
+  ]);
 
   const commandRows = useMemo(() => {
     if (!query.trim()) return commands;

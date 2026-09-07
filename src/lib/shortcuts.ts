@@ -4,6 +4,7 @@ export const SHORTCUTS = {
   tableSearch: "⌘P",
   columnSearch: "⌘/",
   sqlEditor: "⌘E",
+  switchConnection: "⌘⇧E",
 } as const;
 
 function opener() {

@@ -225,6 +225,11 @@ export function QueryView() {
             onChange={(value) => setDraft(connection.id, value)}
             onRun={() => void run()}
             onSave={save}
+            onLimitExceeded={() =>
+              setError(
+                `Query is too long (maximum ${MAX_QUERY_LENGTH.toLocaleString()} characters).`,
+              )
+            }
           />
         </div>
 

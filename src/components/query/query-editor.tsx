@@ -85,18 +85,28 @@ export const QueryEditor = forwardRef<
     onChange: (value: string) => void;
     onRun: () => void;
     onSave: () => void;
+    onLimitExceeded: () => void;
   }
->(function QueryEditor({ value, schema, maxLength, onChange, onRun, onSave }, ref) {
+>(function QueryEditor(
+  { value, schema, maxLength, onChange, onRun, onSave, onLimitExceeded },
+  ref,
+) {
   const viewRef = useRef<EditorView | null>(null);
   const runRef = useRef(onRun);
   runRef.current = onRun;
   const saveRef = useRef(onSave);
   saveRef.current = onSave;
+  const limitRef = useRef(onLimitExceeded);
+  limitRef.current = onLimitExceeded;
 
   const extensions = useMemo(
     () => [
       sql({ dialect: PostgreSQL, schema }),
-      EditorState.changeFilter.of((transaction) => transaction.newDoc.length <= maxLength),
+      EditorState.changeFilter.of((transaction) => {
+        if (transaction.newDoc.length <= maxLength) return true;
+        queueMicrotask(() => limitRef.current());
+        return false;
+      }),
       EditorView.contentAttributes.of({ "aria-label": "SQL query editor" }),
       // react-codemirror appends these after basicSetup, which makes them lower
       // precedence than the default keymap's own Mod-Enter binding.
