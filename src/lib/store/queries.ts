@@ -41,12 +41,15 @@ type SavedQueryPatch = Partial<SavedQueryInput>;
 
 type QueriesState = {
   drafts: Record<string, string>;
+  /** Height of the SQL editor pane, in pixels. */
+  editorHeight: number;
   history: QueryHistoryItem[];
   folders: QueryFolder[];
   saved: SavedQuery[];
   /** Saved query currently loaded in each connection's editor. */
   activeSaved: Record<string, string>;
   setDraft: (connectionId: string, sql: string) => void;
+  setEditorHeight: (height: number) => void;
   record: (connectionId: string, sql: string) => void;
   remove: (id: string) => void;
   createFolder: (connectionId: string, name: string) => string;
@@ -58,6 +61,10 @@ type QueriesState = {
   removeSaved: (id: string) => void;
   setActiveSaved: (connectionId: string, id: string | null) => void;
 };
+
+export const DEFAULT_EDITOR_HEIGHT = 224;
+export const MIN_EDITOR_HEIGHT = 144;
+export const MAX_EDITOR_HEIGHT = 800;
 
 const MAX_HISTORY_ITEMS = 200;
 const MAX_HISTORY_CHARACTERS = 1_000_000;
@@ -79,12 +86,17 @@ export const useQueries = create<QueriesState>()(
   persist(
     (set, get) => ({
       drafts: {},
+      editorHeight: DEFAULT_EDITOR_HEIGHT,
       history: [],
       folders: [],
       saved: [],
       activeSaved: {},
       setDraft: (connectionId, sql) =>
         set((state) => ({ drafts: { ...state.drafts, [connectionId]: sql } })),
+      setEditorHeight: (height) =>
+        set({
+          editorHeight: Math.min(MAX_EDITOR_HEIGHT, Math.max(MIN_EDITOR_HEIGHT, Math.round(height))),
+        }),
       record: (connectionId, input) =>
         set((state) => {
           const sql = input.trim();

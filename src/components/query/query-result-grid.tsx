@@ -23,13 +23,13 @@ function ResultTable({ statement }: { statement: SqlStatementResult }) {
       <table className="min-w-full border-separate border-spacing-0 font-mono text-xs">
         <thead>
           <tr>
-            <th className="sticky top-0 left-0 z-20 h-8 w-10 border-r border-b bg-muted px-2 text-right font-normal text-muted-foreground">
+            <th className="sticky top-0 left-0 z-20 h-9 w-10 border-r border-b bg-muted px-2 text-right font-normal text-muted-foreground">
               #
             </th>
             {statement.columns.map((column, index) => (
               <th
                 key={`${column}:${index}`}
-                className="sticky top-0 z-10 h-8 min-w-32 border-r border-b bg-muted px-3 text-left font-medium whitespace-nowrap text-foreground last:border-r-0"
+                className="sticky top-0 z-10 h-9 min-w-32 border-r border-b bg-muted px-3 text-left font-medium whitespace-nowrap text-foreground last:border-r-0"
               >
                 {column}
               </th>

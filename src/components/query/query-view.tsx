@@ -13,7 +13,12 @@ import { useExplorerContext } from "@/components/explorer/explorer-provider";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import { MAX_QUERY_LENGTH } from "@/lib/query-limits";
-import { useQueries, type SavedQuery } from "@/lib/store/queries";
+import {
+  MAX_EDITOR_HEIGHT,
+  MIN_EDITOR_HEIGHT,
+  useQueries,
+  type SavedQuery,
+} from "@/lib/store/queries";
 import type { SqlQueryResult } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { QueryEditor, type QueryEditorHandle } from "./query-editor";
@@ -33,6 +38,8 @@ export function QueryView() {
     activeSavedId ? (state.saved.find((query) => query.id === activeSavedId) ?? null) : null,
   );
   const setActiveSaved = useQueries((state) => state.setActiveSaved);
+  const editorHeight = useQueries((state) => state.editorHeight);
+  const setEditorHeight = useQueries((state) => state.setEditorHeight);
   const updateSaved = useQueries((state) => state.updateSaved);
   const [result, setResult] = useState<SqlQueryResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -40,6 +47,7 @@ export function QueryView() {
   const [saving, setSaving] = useState(false);
   const [sidebarTab, setSidebarTab] = useState<QuerySidebarTab>("saved");
   const editorRef = useRef<QueryEditorHandle>(null);
+  const editorPaneRef = useRef<HTMLDivElement>(null);
   const requestRef = useRef<AbortController | null>(null);
 
   const dirty = activeSaved !== null && activeSaved.sql !== draft;
@@ -55,6 +63,22 @@ export function QueryView() {
   }, [tables.data]);
 
   useEffect(() => () => requestRef.current?.abort(), []);
+
+  /** Remembers where the user left the drag handle on the editor pane. */
+  useEffect(() => {
+    const pane = editorPaneRef.current;
+    if (!pane) return;
+    let timer: number | null = null;
+    const observer = new ResizeObserver(() => {
+      if (timer !== null) window.clearTimeout(timer);
+      timer = window.setTimeout(() => setEditorHeight(pane.offsetHeight), 200);
+    });
+    observer.observe(pane);
+    return () => {
+      if (timer !== null) window.clearTimeout(timer);
+      observer.disconnect();
+    };
+  }, [setEditorHeight]);
 
   function queryToRun(): string {
     return editorRef.current?.selectedText().trim() || draft.trim();
@@ -188,7 +212,11 @@ export function QueryView() {
           </Button>
         </header>
 
-        <div className="h-56 min-h-36 max-h-[55vh] shrink-0 resize-y overflow-hidden border-b bg-background">
+        <div
+          ref={editorPaneRef}
+          style={{ height: editorHeight, minHeight: MIN_EDITOR_HEIGHT, maxHeight: MAX_EDITOR_HEIGHT }}
+          className="max-h-[55vh] shrink-0 resize-y overflow-hidden border-b bg-background"
+        >
           <QueryEditor
             ref={editorRef}
             value={draft}

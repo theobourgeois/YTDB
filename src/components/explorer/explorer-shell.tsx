@@ -11,6 +11,7 @@ import { resolveConnectionColor } from "@/lib/connection-colors";
 import { ExplorerProvider } from "./explorer-provider";
 import { Sidebar } from "./sidebar";
 import { CommandPalette } from "./command-palette";
+import { GlobalShortcuts } from "./global-shortcuts";
 import { TablePalette } from "./table-palette";
 
 export function ExplorerShell({
@@ -79,6 +80,7 @@ export function ExplorerShell({
       </div>
       <TablePalette />
       <CommandPalette />
+      <GlobalShortcuts />
     </ExplorerProvider>
   );
 }

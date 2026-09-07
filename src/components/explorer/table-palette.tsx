@@ -8,6 +8,7 @@ import { api } from "@/lib/api";
 import { useConnections } from "@/lib/store/connections";
 import { useBrowseState, useExplorer } from "@/lib/store/explorer";
 import { dismissPalettes, registerPaletteCloser } from "@/lib/palettes";
+import { registerTableSearch } from "@/lib/shortcuts";
 import { rankFuzzy, rankFuzzyMulti } from "@/lib/fuzzy";
 import { tableKey, type Connection, type TableInfo } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -338,19 +339,23 @@ export function TablePalette() {
   }, [connection.id, params.schema, params.table, setBrowse]);
 
   useEffect(() => {
+    function reveal() {
+      if (open) {
+        inputRef.current?.select();
+        return;
+      }
+      dismissPalettes();
+      setQuery("");
+      setIndex(0);
+      setScopedConnectionId(null);
+      setOpen(true);
+    }
+
     function onKeyDown(event: KeyboardEvent) {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "p") {
         if (event.shiftKey) return;
         event.preventDefault();
-        if (open) {
-          inputRef.current?.select();
-          return;
-        }
-        dismissPalettes();
-        setQuery("");
-        setIndex(0);
-        setScopedConnectionId(null);
-        setOpen(true);
+        reveal();
         return;
       }
 
@@ -368,9 +373,11 @@ export function TablePalette() {
 
     window.addEventListener("keydown", onKeyDown, true);
     window.addEventListener("pointerdown", onPointerDown);
+    const unregister = registerTableSearch(reveal);
     return () => {
       window.removeEventListener("keydown", onKeyDown, true);
       window.removeEventListener("pointerdown", onPointerDown);
+      unregister();
     };
   }, [open]);
 

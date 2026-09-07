@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { rankFuzzy } from "@/lib/fuzzy";
+import { registerColumnSearch } from "@/lib/shortcuts";
 import { cn } from "@/lib/utils";
 import type { ColumnInfo } from "@/lib/types";
 
@@ -81,8 +82,20 @@ export function ColumnJump({ columns, resetKey, onActiveColumn }: Props) {
   }, [open]);
 
   useEffect(() => {
+    function reveal() {
+      if (columns.length === 0) return;
+      clearScheduled();
+      if (open) {
+        inputRef.current?.select();
+        return;
+      }
+      setQuery("");
+      setIndex(0);
+      setOpen(true);
+    }
+
     function onKeyDown(event: KeyboardEvent) {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+      if ((event.metaKey || event.ctrlKey) && event.key === "/") {
         if (
           document.querySelector(
             "[data-slot=dialog-content], [data-table-palette], [data-command-palette]",
@@ -91,15 +104,7 @@ export function ColumnJump({ columns, resetKey, onActiveColumn }: Props) {
           return;
         }
         event.preventDefault();
-        if (columns.length === 0) return;
-        clearScheduled();
-        if (open) {
-          inputRef.current?.select();
-          return;
-        }
-        setQuery("");
-        setIndex(0);
-        setOpen(true);
+        reveal();
         return;
       }
 
@@ -110,7 +115,11 @@ export function ColumnJump({ columns, resetKey, onActiveColumn }: Props) {
     }
 
     window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    const unregister = registerColumnSearch(reveal);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      unregister();
+    };
   }, [open, columns.length]);
 
   useEffect(() => () => clearScheduled(), []);

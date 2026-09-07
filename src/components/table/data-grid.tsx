@@ -910,7 +910,7 @@ export function DataGrid({
                   <th
                     ref={checkboxHeaderRef}
                     className={cn(
-                      "h-8 w-16 border-b border-r pr-1.5 pl-2 font-normal text-muted-foreground",
+                      "h-9 w-16 border-b border-r pr-1.5 pl-2 font-normal text-muted-foreground",
                       checkboxFreezeClass("header"),
                     )}
                   >
@@ -958,7 +958,7 @@ export function DataGrid({
                         }
                         style={columnFreezeStyle(column)}
                         className={cn(
-                          "relative h-8 max-w-80 border-b border-r p-0 text-left font-normal whitespace-nowrap select-none",
+                          "relative h-9 max-w-80 border-b border-r p-0 text-left font-normal whitespace-nowrap select-none",
                           columnFreezeClass(column, "header"),
                           jumped &&
                             (pinnedSet.has(column)
@@ -1031,7 +1031,7 @@ export function DataGrid({
                     >
                       <td
                         className={cn(
-                          "h-7 w-16 border-b border-r pr-1.5 pl-2 text-muted-foreground tabular-nums",
+                          "h-8 w-16 border-b border-r pr-1.5 pl-2 text-muted-foreground tabular-nums",
                           checkboxFreezeClass("body"),
                         )}
                       >
@@ -1124,7 +1124,7 @@ export function DataGrid({
                             }}
                             style={columnFreezeStyle(column)}
                             className={cn(
-                              "group/cell h-7 max-w-80 border-b border-r px-3 whitespace-nowrap select-none",
+                              "group/cell h-8 max-w-80 border-b border-r px-3 whitespace-nowrap select-none",
                               url && linkModifier ? "cursor-pointer" : "cursor-default",
                               inlineEditing ? "overflow-visible" : "truncate",
                               columnFreezeClass(column, "body"),

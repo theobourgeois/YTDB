@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useBrowseState } from "@/lib/store/explorer";
+import { SHORTCUTS } from "@/lib/shortcuts";
 import { tableKey, type TableInfo } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { ConnectionSwitcher } from "./connection-switcher";
@@ -228,6 +229,9 @@ export function Sidebar({ width: persistedWidth, onWidthChange, onCollapse }: Pr
         >
           <SquareTerminalIcon data-icon="inline-start" />
           SQL query
+          <kbd className="ml-auto font-mono text-[10px] text-muted-foreground/55">
+            {SHORTCUTS.sqlEditor}
+          </kbd>
         </Link>
         <div className="relative">
           <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -239,7 +243,7 @@ export function Sidebar({ width: persistedWidth, onWidthChange, onCollapse }: Pr
             className="h-9 bg-background/60 pr-9 pl-8"
           />
           <kbd className="pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 font-mono text-[10px] text-muted-foreground/55">
-            ⌘P
+            {SHORTCUTS.tableSearch}
           </kbd>
         </div>
         <SchemaMultiSelect

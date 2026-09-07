@@ -9,10 +9,12 @@ import { useBrowseState, useExplorer, syncLayoutSharing } from "@/lib/store/expl
 import { useThemeStore } from "@/lib/store/theme";
 import { applyTheme, THEMES, type Theme } from "@/lib/themes";
 import { dismissPalettes, registerPaletteCloser } from "@/lib/palettes";
+import { openColumnSearch, openTableSearch, SHORTCUTS } from "@/lib/shortcuts";
 import { rankFuzzy } from "@/lib/fuzzy";
 import { tableKey, type TableRef } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useExplorerContext } from "./explorer-provider";
+import { useSqlEditor } from "./use-sql-editor";
 
 type PaletteMode = "commands" | "themes";
 
@@ -21,6 +23,7 @@ type Command = {
   title: string;
   keywords: string[];
   enabled: boolean;
+  shortcut?: string;
   keepOpen?: boolean;
   run: () => void;
 };
@@ -69,6 +72,7 @@ export function CommandPalette() {
   const router = useRouter();
   const params = useParams<{ connectionId: string; schema?: string; table?: string }>();
   const { connection, tables } = useExplorerContext();
+  const sqlEditor = useSqlEditor();
   const addConnection = useConnections((state) => state.add);
   const [browse, setBrowse] = useBrowseState(connection.id);
   const [open, setOpen] = useState(false);
@@ -91,11 +95,28 @@ export function CommandPalette() {
   const commands = useMemo((): Command[] => {
     return [
       {
-        id: "new-query",
-        title: "Open SQL Query",
-        keywords: ["new", "query", "sql", "console", "editor"],
+        id: "sql-editor",
+        title: sqlEditor.open ? "Back to Table" : "Open SQL Query",
+        keywords: ["new", "query", "sql", "console", "editor", "close", "back", "table"],
         enabled: true,
-        run: () => router.push(`/${encodeURIComponent(connection.id)}/query`),
+        shortcut: SHORTCUTS.sqlEditor,
+        run: () => sqlEditor.toggle(),
+      },
+      {
+        id: "search-tables",
+        title: "Search Tables",
+        keywords: ["find", "jump", "open", "goto", "table"],
+        enabled: true,
+        shortcut: SHORTCUTS.tableSearch,
+        run: () => window.requestAnimationFrame(() => openTableSearch()),
+      },
+      {
+        id: "search-columns",
+        title: "Search Columns",
+        keywords: ["find", "jump", "goto", "column", "field"],
+        enabled: table !== null,
+        shortcut: SHORTCUTS.columnSearch,
+        run: () => window.requestAnimationFrame(() => openColumnSearch()),
       },
       {
         id: "reload-tables",
@@ -183,7 +204,7 @@ export function CommandPalette() {
         run: () => setConnectionDialogOpen(true),
       },
     ];
-  }, [browse.pinnedTables, connection.id, pinned, router, setBrowse, table, tableState?.search, tables]);
+  }, [browse.pinnedTables, connection.id, pinned, setBrowse, sqlEditor, table, tableState?.search, tables]);
 
   const commandRows = useMemo(() => {
     if (!query.trim()) return commands;
@@ -425,6 +446,11 @@ export function CommandPalette() {
                     <span className="min-w-0 truncate">
                       <HighlightedText text={command.title} query={query.trim()} />
                     </span>
+                    {command.shortcut && (
+                      <kbd className="ml-auto shrink-0 pl-3 font-mono text-[11px] text-muted-foreground/70">
+                        {command.shortcut}
+                      </kbd>
+                    )}
                   </button>
                 );
               })
