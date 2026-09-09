@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { dismissPalettes } from "@/lib/palettes";
 import { useConnections } from "@/lib/store/connections";
+import { useMigrationsPane } from "./use-migrations-pane";
 import { useSchemaDiff } from "./use-schema-diff";
 import { useSqlEditor } from "./use-sql-editor";
 import { useSwitchConnection } from "./use-switch-connection";
@@ -11,10 +12,12 @@ import { useSwitchConnection } from "./use-switch-connection";
 export function GlobalShortcuts() {
   const { toggle } = useSqlEditor();
   const { toggle: toggleDiff } = useSchemaDiff();
+  const { toggle: toggleMigrations } = useMigrationsPane();
   const { run: switchConnection } = useSwitchConnection();
   const comparable = useConnections((state) => state.connections.length > 1);
   const toggleRef = useRef(toggle);
   const diffRef = useRef(toggleDiff);
+  const migrationsRef = useRef(toggleMigrations);
   const switchRef = useRef(switchConnection);
   const comparableRef = useRef(comparable);
 
@@ -25,6 +28,10 @@ export function GlobalShortcuts() {
   useEffect(() => {
     diffRef.current = toggleDiff;
   }, [toggleDiff]);
+
+  useEffect(() => {
+    migrationsRef.current = toggleMigrations;
+  }, [toggleMigrations]);
 
   useEffect(() => {
     switchRef.current = switchConnection;
@@ -38,6 +45,13 @@ export function GlobalShortcuts() {
     function onKeyDown(event: KeyboardEvent) {
       if (!(event.metaKey || event.ctrlKey) || event.altKey || event.repeat) return;
       const key = event.key.toLowerCase();
+
+      if (key === "m" && event.shiftKey) {
+        event.preventDefault();
+        dismissPalettes();
+        migrationsRef.current();
+        return;
+      }
 
       if (key === "d" && event.shiftKey) {
         if (!comparableRef.current) return;

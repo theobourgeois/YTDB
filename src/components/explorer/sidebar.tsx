@@ -10,7 +10,13 @@ import {
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import { GitCompareIcon, PanelLeftCloseIcon, SearchIcon, SquareTerminalIcon } from "lucide-react";
+import {
+  GitCompareIcon,
+  Layers2Icon,
+  PanelLeftCloseIcon,
+  SearchIcon,
+  SquareTerminalIcon,
+} from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -124,6 +130,7 @@ export function Sidebar({ width: persistedWidth, onWidthChange, onCollapse }: Pr
   const base = `/${encodeURIComponent(connection.id)}`;
   const queryHref = `${base}/query`;
   const diffHref = `${base}/diff`;
+  const migrationsHref = `${base}/migrations`;
 
   function expandMatchingSchemas(search: string, selected: string[] | null) {
     const matches = filterTables(tables.data ?? [], search, selected);
@@ -253,6 +260,14 @@ export function Sidebar({ width: persistedWidth, onWidthChange, onCollapse }: Pr
           <NavLink href={queryHref} active={pathname === queryHref} shortcut={SHORTCUTS.sqlEditor}>
             <SquareTerminalIcon data-icon="inline-start" />
             SQL query
+          </NavLink>
+          <NavLink
+            href={migrationsHref}
+            active={pathname === migrationsHref}
+            shortcut={SHORTCUTS.migrations}
+          >
+            <Layers2Icon data-icon="inline-start" />
+            Migrations
           </NavLink>
           {comparable && (
             <NavLink

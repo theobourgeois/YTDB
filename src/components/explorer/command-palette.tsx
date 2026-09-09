@@ -19,6 +19,7 @@ import { rankFuzzy } from "@/lib/fuzzy";
 import { tableKey, type TableRef } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useExplorerContext } from "./explorer-provider";
+import { useMigrationsPane } from "./use-migrations-pane";
 import { useSchemaDiff } from "./use-schema-diff";
 import { useSqlEditor } from "./use-sql-editor";
 import { useSwitchConnection } from "./use-switch-connection";
@@ -81,6 +82,7 @@ export function CommandPalette() {
   const { connection, tables } = useExplorerContext();
   const sqlEditor = useSqlEditor();
   const schemaDiff = useSchemaDiff();
+  const migrations = useMigrationsPane();
   const compare = useCompareTarget(connection.id);
   const switchConnection = useSwitchConnection();
   const addConnection = useConnections((state) => state.add);
@@ -121,6 +123,14 @@ export function CommandPalette() {
         enabled: switchConnection.enabled,
         shortcut: SHORTCUTS.switchConnection,
         run: () => void switchConnection.run(),
+      },
+      {
+        id: "migrations",
+        title: migrations.open ? "Back to Table" : "Open Migrations",
+        keywords: ["migration", "migrate", "apply", "revert", "rollback", "ledger", "schema", "run"],
+        enabled: true,
+        shortcut: SHORTCUTS.migrations,
+        run: () => migrations.toggle(),
       },
       {
         id: "compare-schema",
@@ -238,6 +248,7 @@ export function CommandPalette() {
     browse.pinnedTables,
     compare.target,
     connection.id,
+    migrations,
     pinned,
     schemaDiff,
     setBrowse,

@@ -13,6 +13,9 @@ export const QUERY_RESULT_LIMIT = 500;
 /** Migrations need more headroom than interactive table browsing. */
 export const QUERY_STATEMENT_TIMEOUT_MS = 60_000;
 
+/** A migration file can rewrite a whole table, which no interactive limit should cut short. */
+export const MIGRATION_STATEMENT_TIMEOUT_MS = 600_000;
+
 /** Keeps oversized requests and persisted drafts out of the browser and API. */
 export const MAX_QUERY_LENGTH = 500_000;
 

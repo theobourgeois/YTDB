@@ -1,3 +1,4 @@
+import type { LedgerResult, MigrationRequest, MigrationResult } from "./migrations/types";
 import type {
   CellUpdate,
   CellUpdateResult,
@@ -82,4 +83,10 @@ export const api = {
 
   schema: (connectionUrl: string, signal?: AbortSignal) =>
     post<SchemaSnapshot>("/api/schema", { connectionUrl }, signal),
+
+  ledger: (connectionUrl: string, ledgerSchema: string, signal?: AbortSignal) =>
+    post<LedgerResult>("/api/ledger", { connectionUrl, ledgerSchema }, signal),
+
+  migrate: (connectionUrl: string, migration: MigrationRequest, signal?: AbortSignal) =>
+    post<MigrationResult>("/api/migrate", { connectionUrl, migration }, signal),
 };

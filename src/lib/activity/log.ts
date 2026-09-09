@@ -132,6 +132,18 @@ export function summarizeResult(
     }
     case "definition":
       return { sqlLength: typeof value?.sql === "string" ? value.sql.length : 0 };
+    case "ledger":
+      return {
+        initialized: value?.initialized ?? false,
+        entries: rowCount(value?.entries),
+      };
+    case "migrate":
+      return {
+        version: value?.version ?? null,
+        direction: value?.direction ?? null,
+        statements: value?.statements ?? 0,
+        durationMs: value?.durationMs ?? null,
+      };
     case "schema":
       return {
         relations: rowCount(value?.relations),

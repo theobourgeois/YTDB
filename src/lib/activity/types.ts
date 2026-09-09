@@ -14,6 +14,8 @@ export const API_ACTIONS = [
   "lookup",
   "definition",
   "schema",
+  "ledger",
+  "migrate",
 ] as const;
 
 /** Actions that only ever happen in the browser, reported by the client. */
@@ -23,6 +25,8 @@ export const UI_ACTIONS = [
   "connection.remove",
   "config.export",
   "config.import",
+  "migrations.import",
+  "migrations.remove",
 ] as const;
 
 export type ApiAction = (typeof API_ACTIONS)[number];
