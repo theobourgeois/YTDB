@@ -102,12 +102,29 @@ export function MigrationsIndex() {
     setRestoreError(null);
     try {
       const reads = await Promise.all(
-        environmentConnections.map((item) =>
-          api.ledger(item.url, ledgerSchema, undefined, true).catch(() => null),
-        ),
+        environmentConnections.map(async (item) => {
+          try {
+            return { read: await api.ledger(item.url, ledgerSchema, undefined, true), error: null };
+          } catch (caught) {
+            return { read: null, error: caught instanceof Error ? caught.message : String(caught) };
+          }
+        }),
       );
+
+      const failure = reads.find((item) => item.error);
+      if (failure?.error) {
+        setRestoreError(failure.error);
+        return;
+      }
+
+      // A bridge older than this page ignores the request for SQL rather than
+      // refusing it, and says nothing about it either. A current bridge always
+      // answers — `false` means the ledger has no SQL columns, which is a
+      // different problem with a different fix.
+      const stale = reads.some((item) => item.read && item.read.withSql === undefined);
+
       const byVersion = new Map<string, { version: string; name: string; applySql?: string; revertSql?: string }>();
-      for (const read of reads) {
+      for (const { read } of reads) {
         for (const entry of read?.entries ?? []) {
           if (entry.setName?.trim() !== name) continue;
           const existing = byVersion.get(entry.version);
@@ -118,7 +135,9 @@ export function MigrationsIndex() {
       const { set: rebuilt, missing } = setFromLedger(name, [...byVersion.values()]);
       if (rebuilt.steps.length === 0) {
         setRestoreError(
-          `${name} was applied before YTDB kept the SQL, so it cannot be rebuilt. Drop its folder instead.`,
+          stale
+            ? "The YTDB running on your machine is older than this page and cannot send stored SQL. Restart it with `npx @theobourgeois/ytdb@latest`."
+            : `${name} was applied before YTDB stored SQL, so it cannot be rebuilt. Drop its folder instead.`,
         );
         return;
       }

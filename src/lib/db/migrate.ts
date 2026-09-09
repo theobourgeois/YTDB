@@ -174,16 +174,18 @@ export async function readLedger(
 ): Promise<LedgerResult> {
   const pool = getPool(connectionString);
   const { schema, exists } = await resolveLedgerSchema(pool, configured);
-  if (!exists) return { initialized: false, schema, entries: [] };
+  if (!exists) return { initialized: false, schema, withSql, entries: [] };
 
   // A ledger written before the SQL columns existed still has to read.
+  let carriedSql = withSql;
   const result = await pool
     .query<LedgerRow>(selectLedgerSql(schema, withSql))
     .catch(async (error: unknown) => {
       if (!withSql) throw error;
+      carriedSql = false;
       return pool.query<LedgerRow>(selectLedgerSql(schema, false));
     });
-  return { initialized: true, schema, entries: result.rows.map(toEntry) };
+  return { initialized: true, schema, withSql: carriedSql, entries: result.rows.map(toEntry) };
 }
 
 async function rollback(client: PoolClient): Promise<void> {

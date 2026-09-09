@@ -80,6 +80,11 @@ export type LedgerResult = {
   initialized: boolean;
   /** The schema the ledger was actually found in, which may not be the configured one. */
   schema: string;
+  /**
+   * True when the rows carry their stored SQL. Absent from a bridge too old to
+   * know about it — which is how a page newer than the local install is spotted.
+   */
+  withSql?: boolean;
   entries: LedgerEntry[];
 };
 
