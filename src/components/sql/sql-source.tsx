@@ -1,10 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { CheckIcon, CopyIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { tokenizeSql, tokensByLine, type SqlTokenKind } from "@/lib/sql-highlight";
+import { tokenizeSql, tokensByLine, type SqlToken, type SqlTokenKind } from "@/lib/sql-highlight";
 import { cn } from "@/lib/utils";
 
 function tokenClass(kind: SqlTokenKind): string {
@@ -29,14 +29,62 @@ function tokenClass(kind: SqlTokenKind): string {
   }
 }
 
-export function DefinitionView({
+function Line({ tokens }: { tokens: SqlToken[] }) {
+  return tokens.map((token, index) => (
+    <span key={index} className={tokenClass(token.kind)}>
+      {token.value}
+    </span>
+  ));
+}
+
+export async function copySql(sql: string): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(sql);
+    return;
+  } catch {
+    const textarea = document.createElement("textarea");
+    textarea.value = sql;
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand("copy");
+    textarea.remove();
+  }
+}
+
+/** Highlighted SQL without a gutter, for previews inside another list or panel. */
+export function SqlCode({ sql, className }: { sql: string; className?: string }) {
+  const lines = useMemo(() => tokensByLine(tokenizeSql(sql.trimEnd())), [sql]);
+  return (
+    <pre
+      className={cn(
+        "overflow-x-auto font-mono text-[12px] leading-5 whitespace-pre",
+        className,
+      )}
+    >
+      <code>
+        {lines.map((line, index) => (
+          <div key={index} className="min-h-5">
+            <Line tokens={line} />
+          </div>
+        ))}
+      </code>
+    </pre>
+  );
+}
+
+/** A full pane of SQL: line numbers, a copy button, and room for extra actions. */
+export function SqlSource({
   sql,
   error,
   loading,
+  actions,
 }: {
   sql: string | undefined;
   error: string | null;
   loading: boolean;
+  actions?: ReactNode;
 }) {
   const [copied, setCopied] = useState(false);
   const lines = useMemo(
@@ -60,18 +108,7 @@ export function DefinitionView({
 
   async function copy() {
     if (!sql) return;
-    try {
-      await navigator.clipboard.writeText(sql);
-    } catch {
-      const textarea = document.createElement("textarea");
-      textarea.value = sql;
-      textarea.style.position = "fixed";
-      textarea.style.opacity = "0";
-      document.body.appendChild(textarea);
-      textarea.select();
-      document.execCommand("copy");
-      textarea.remove();
-    }
+    await copySql(sql);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1500);
   }
@@ -79,8 +116,9 @@ export function DefinitionView({
   const gutter = `${Math.max(String(lines.length).length, 2) + 1}ch`;
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col" data-table-definition="">
-      <div className="flex shrink-0 items-center justify-end px-3 py-1">
+    <div className="flex min-h-0 flex-1 flex-col" data-sql-source="">
+      <div className="flex shrink-0 items-center justify-end gap-2 px-3 py-1">
+        {actions}
         <Button type="button" variant="ghost" size="sm" onClick={() => void copy()}>
           {copied ? <CheckIcon data-icon="inline-start" /> : <CopyIcon data-icon="inline-start" />}
           {copied ? "Copied" : "Copy SQL"}
@@ -97,11 +135,7 @@ export function DefinitionView({
                 {index + 1}
               </span>
               <code className="pr-8 whitespace-pre">
-                {line.map((token, tokenIndex) => (
-                  <span key={tokenIndex} className={tokenClass(token.kind)}>
-                    {token.value}
-                  </span>
-                ))}
+                <Line tokens={line} />
               </code>
             </div>
           ))}

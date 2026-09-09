@@ -190,3 +190,74 @@ export type TableDefinition = {
 export function tableKey(table: TableRef): string {
   return `${table.schema}.${table.name}`;
 }
+
+/** What a relation is, for schema comparison. */
+export type RelationKind = "table" | "view" | "materialized view" | "foreign table";
+
+export type SnapshotColumn = {
+  name: string;
+  type: string;
+  nullable: boolean;
+  /** Rendered DEFAULT expression, or null. Never set on generated columns. */
+  default: string | null;
+  identity: "ALWAYS" | "BY DEFAULT" | null;
+  /** Generation expression of a stored generated column. */
+  generated: string | null;
+  collation: string | null;
+};
+
+/** A constraint, index, or trigger, keyed by name and compared by its DDL. */
+export type SnapshotNamedSql = {
+  name: string;
+  sql: string;
+};
+
+export type SnapshotRelation = {
+  schema: string;
+  name: string;
+  kind: RelationKind;
+  unlogged: boolean;
+  columns: SnapshotColumn[];
+  constraints: SnapshotNamedSql[];
+  indexes: SnapshotNamedSql[];
+  triggers: SnapshotNamedSql[];
+  /** Body of a view or materialized view. */
+  viewSql?: string;
+  partitionBy?: string;
+  /** Qualified parent table of a partition, with its bound. */
+  partitionOf?: { parent: TableRef; bound: string };
+};
+
+export type SnapshotEnum = {
+  schema: string;
+  name: string;
+  labels: string[];
+};
+
+export type SnapshotExtension = {
+  name: string;
+  version: string;
+  schema: string;
+};
+
+export type SnapshotFunction = {
+  schema: string;
+  name: string;
+  /** Identity arguments, which together with the name make the function unique. */
+  args: string;
+  kind: "function" | "procedure";
+  sql: string;
+};
+
+/** Everything about a database's structure that schema comparison looks at. */
+export type SchemaSnapshot = {
+  extensions: SnapshotExtension[];
+  schemas: string[];
+  enums: SnapshotEnum[];
+  relations: SnapshotRelation[];
+  functions: SnapshotFunction[];
+};
+
+export function relationKey(relation: { schema: string; name: string }): string {
+  return `${relation.schema}.${relation.name}`;
+}

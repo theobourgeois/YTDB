@@ -1,13 +1,8 @@
 import "server-only";
-import type { Filter, FilterOperator, TableRef } from "../types";
+import { quoteIdent, quoteTable } from "../identifiers";
+import type { Filter, FilterOperator } from "../types";
 
-export function quoteIdent(name: string): string {
-  return `"${name.replace(/"/g, '""')}"`;
-}
-
-export function quoteTable(table: TableRef): string {
-  return `${quoteIdent(table.schema)}.${quoteIdent(table.name)}`;
-}
+export { quoteIdent, quoteTable };
 
 export function escapeIlike(value: string): string {
   return value.replace(/[\\%_]/g, "\\$&");

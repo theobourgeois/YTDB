@@ -84,8 +84,11 @@ const TABLE_SESSION_KEYS = [
 type ExplorerState = {
   browse: Record<string, BrowseState>;
   tables: Record<string, TableState>;
+  /** The connection each connection was last compared against, by id. */
+  compareTargets: Record<string, string>;
   setBrowse: (connectionId: string, patch: Partial<BrowseState>) => void;
   setTable: (connectionId: string, table: TableRef, patch: Partial<TableState>) => void;
+  setCompareTarget: (connectionId: string, targetId: string) => void;
   copyLayout: (fromScope: string, toScope: string) => void;
 };
 
@@ -155,6 +158,7 @@ export const useExplorer = create<ExplorerState>()(
     (set) => ({
       browse: {},
       tables: {},
+      compareTargets: {},
       setBrowse: (connectionId, patch) =>
         set((state) => {
           const layoutKey = layoutScope(connectionId);
@@ -200,6 +204,10 @@ export const useExplorer = create<ExplorerState>()(
           }
           return { tables };
         }),
+      setCompareTarget: (connectionId, targetId) =>
+        set((state) => ({
+          compareTargets: { ...state.compareTargets, [connectionId]: targetId },
+        })),
       copyLayout: (fromScope, toScope) =>
         set((state) => {
           if (fromScope === toScope) return state;
@@ -338,4 +346,31 @@ export function useSharedLayoutPartners(connectionId: string) {
   return connections.filter(
     (item) => item.layoutGroup === layoutGroup && item.id !== connectionId,
   );
+}
+
+/**
+ * Which connection a comparison runs against: the one last chosen, otherwise a
+ * connection that already shares this one's layout, since linked connections are
+ * the same database in another environment.
+ */
+export function useCompareTarget(connectionId: string) {
+  const connections = useConnections((state) => state.connections);
+  const stored = useExplorer((state) => state.compareTargets[connectionId]);
+  const setCompareTarget = useExplorer((state) => state.setCompareTarget);
+  const layoutGroup = useConnections(
+    (state) => state.connections.find((item) => item.id === connectionId)?.layoutGroup,
+  );
+
+  const candidates = connections.filter((item) => item.id !== connectionId);
+  const partners = layoutGroup
+    ? candidates.filter((item) => item.layoutGroup === layoutGroup)
+    : [];
+  const target = candidates.find((item) => item.id === stored) ?? partners[0] ?? candidates[0];
+
+  return {
+    target: target ?? null,
+    candidates,
+    partnerIds: partners.map((item) => item.id),
+    setTarget: (targetId: string) => setCompareTarget(connectionId, targetId),
+  };
 }

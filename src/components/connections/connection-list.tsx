@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Link2Icon, MoreHorizontalIcon, PlusIcon } from "lucide-react";
+import { GitCompareIcon, Link2Icon, MoreHorizontalIcon, PlusIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -28,10 +28,12 @@ function hostOf(url: string): string {
 
 function ConnectionRow({
   connection,
+  comparable,
   onEdit,
   onRemove,
 }: {
   connection: Connection;
+  comparable: boolean;
   onEdit: (connection: Connection) => void;
   onRemove: (id: string) => void;
 }) {
@@ -67,6 +69,12 @@ function ConnectionRow({
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuItem onClick={() => onEdit(connection)}>Edit</DropdownMenuItem>
+          {comparable && (
+            <DropdownMenuItem render={<Link href={`/${connection.id}/diff`} />}>
+              <GitCompareIcon />
+              Compare schema
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem variant="destructive" onClick={() => onRemove(connection.id)}>
             Delete
           </DropdownMenuItem>
@@ -129,6 +137,7 @@ export function ConnectionList() {
             <ConnectionRow
               key={connection.id}
               connection={connection}
+              comparable={connections.length > 1}
               onEdit={openEdit}
               onRemove={remove}
             />

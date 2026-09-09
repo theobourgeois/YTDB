@@ -13,6 +13,7 @@ export const API_ACTIONS = [
   "related",
   "lookup",
   "definition",
+  "schema",
 ] as const;
 
 /** Actions that only ever happen in the browser, reported by the client. */

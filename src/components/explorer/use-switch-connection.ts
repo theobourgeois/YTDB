@@ -6,6 +6,7 @@ import { dismissPalettes } from "@/lib/palettes";
 import { useConnections } from "@/lib/store/connections";
 import type { Connection, TableInfo, TableRef } from "@/lib/types";
 import { useExplorerContext } from "./explorer-provider";
+import { useSchemaDiff } from "./use-schema-diff";
 import { useSqlEditor } from "./use-sql-editor";
 
 function currentTable(params: { schema?: string; table?: string }): TableRef | null {
@@ -43,16 +44,17 @@ export function tableExistsOnConnection(tables: TableInfo[], table: TableRef): b
 export function switchConnectionHref(
   nextId: string,
   {
-    onQuery,
+    pane,
     table,
     tableExists,
   }: {
-    onQuery: boolean;
+    /** The connection-level view the user is on, when they are on one. */
+    pane: "query" | "diff" | null;
     table: TableRef | null;
     tableExists: boolean;
   },
 ): string {
-  if (onQuery) return connectionHref(nextId, "/query");
+  if (pane) return connectionHref(nextId, `/${pane}`);
   if (table && tableExists) return tableHref(nextId, table);
   return connectionHref(nextId);
 }
@@ -67,6 +69,8 @@ export function useSwitchConnection() {
   const { connection } = useExplorerContext();
   const connections = useConnections((state) => state.connections);
   const sqlEditor = useSqlEditor();
+  const schemaDiff = useSchemaDiff();
+  const pane = sqlEditor.open ? "query" : schemaDiff.open ? "diff" : null;
   const next = nextConnection(connections, connection.id);
 
   async function run() {
@@ -74,7 +78,7 @@ export function useSwitchConnection() {
     dismissPalettes();
     const table = currentTable(params);
     let tableExists = false;
-    if (!sqlEditor.open && table) {
+    if (!pane && table) {
       try {
         tableExists = tableExistsOnConnection(await api.tables(next.url), table);
       } catch {
@@ -83,7 +87,7 @@ export function useSwitchConnection() {
     }
     router.push(
       switchConnectionHref(next.id, {
-        onQuery: sqlEditor.open,
+        pane,
         table,
         tableExists,
       }),

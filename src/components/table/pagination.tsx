@@ -2,6 +2,7 @@
 
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PaneToggle } from "@/components/ui/pane-toggle";
 import {
   Select,
   SelectContent,
@@ -94,58 +95,17 @@ export function Pagination({
             </Button>
           </div>
         ) : null}
-        <PaneToggle pane={pane} onPaneChange={onPaneChange} />
+        <PaneToggle
+          label="Table pane"
+          value={pane}
+          onChange={onPaneChange}
+          options={[
+            { value: "data", label: "Data" },
+            { value: "definition", label: "Definition" },
+          ]}
+        />
       </div>
     </div>
-  );
-}
-
-function PaneToggle({
-  pane,
-  onPaneChange,
-}: {
-  pane: TablePane;
-  onPaneChange: (pane: TablePane) => void;
-}) {
-  return (
-    <div
-      role="group"
-      aria-label="Table pane"
-      className="flex h-7 items-center rounded-md border bg-muted/50 p-0.5"
-    >
-      <PaneButton active={pane === "data"} onClick={() => onPaneChange("data")}>
-        Data
-      </PaneButton>
-      <PaneButton active={pane === "definition"} onClick={() => onPaneChange("definition")}>
-        Definition
-      </PaneButton>
-    </div>
-  );
-}
-
-function PaneButton({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: string;
-}) {
-  return (
-    <button
-      type="button"
-      aria-pressed={active}
-      onClick={onClick}
-      className={cn(
-        "h-full rounded-sm px-2 text-xs transition-colors",
-        active
-          ? "bg-background text-foreground shadow-xs"
-          : "text-muted-foreground hover:text-foreground",
-      )}
-    >
-      {children}
-    </button>
   );
 }
 

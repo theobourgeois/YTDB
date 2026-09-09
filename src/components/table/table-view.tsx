@@ -4,6 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PlusIcon } from "lucide-react";
 import { useExplorerContext } from "@/components/explorer/explorer-provider";
+import { SqlSource } from "@/components/sql/sql-source";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAsync } from "@/hooks/use-async";
@@ -32,7 +33,6 @@ import {
 import { ColumnJump } from "./column-jump";
 import { ColumnLayoutMenu } from "./column-layout";
 import { DataGrid } from "./data-grid";
-import { DefinitionView } from "./definition-view";
 import { FilterBar } from "./filter-bar";
 import { Pagination, type TablePane } from "./pagination";
 import { RowInsertDialog } from "./row-insert-dialog";
@@ -217,7 +217,7 @@ export function TableView({ table }: { table: TableRef }) {
 
       <div className="relative flex min-h-0 flex-1 flex-col">
         {pane === "definition" ? (
-          <DefinitionView
+          <SqlSource
             sql={definition.loading ? undefined : definition.data?.sql || undefined}
             error={definition.error}
             loading={definition.loading}

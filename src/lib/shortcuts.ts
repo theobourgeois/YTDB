@@ -5,6 +5,7 @@ export const SHORTCUTS = {
   columnSearch: "⌘/",
   sqlEditor: "⌘E",
   switchConnection: "⌘⇧E",
+  compareSchema: "⌘⇧D",
 } as const;
 
 function opener() {

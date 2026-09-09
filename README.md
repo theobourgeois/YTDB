@@ -15,6 +15,7 @@ A fast, local-first PostgreSQL browser for exploring and editing databases witho
 - Export the current result set as CSV or JSON
 - View table and view definitions
 - Switch between multiple saved connections and share layouts between them
+- Compare two connections' schemas and generate the migration SQL that closes the gap
 - Import or export your workspace configuration
 - Choose from six built-in themes
 
@@ -27,6 +28,17 @@ Press <kbd>⌘</kbd>+<kbd>P</kbd> on macOS or <kbd>Ctrl</kbd>+<kbd>P</kbd> elsew
 ![YTDB's Command P table palette filtering to products](public/screenshots/ytdb-command-palette.png)
 
 The screenshots use a disposable local database with fictional product and company names. No production data or credentials are included in this repository.
+
+## Compare two databases
+
+Open **Compare schema** in a connection's sidebar (<kbd>⌘</kbd>+<kbd>⇧</kbd>+<kbd>D</kbd>) to diff it
+against another saved connection — dev against prod, say. Connections that already share a layout are
+offered first, since those are the same database in another environment.
+
+The **Changes** pane lists every table, column, index, constraint, trigger, view, enum, function,
+extension, and schema that differs, and the **Migration SQL** pane writes the DDL that would bring the
+other database in line. Nothing is ever executed from here: copy the script into whatever migration
+tool the project already uses. DROP statements are withheld until you ask for them.
 
 ## Run YTDB
 
@@ -159,12 +171,15 @@ src/
     [connectionId]/              database explorer routes
   components/
     connections/                 connection and config management
+    diff/                        schema comparison between two connections
     explorer/                    schemas, tables, and navigation
     table/                       grid, filters, editors, and pagination
   lib/
     activity/                    local action log
     db/                          server-only PostgreSQL access
     store/                       persisted browser state
+    schema-diff.ts               structural comparison of two snapshots
+    schema-migration.ts          DDL that brings one database in line with another
   hooks/                         shared React hooks
 scripts/                         local activity-log reader
 bin/                             `npx @theobourgeois/ytdb` launcher

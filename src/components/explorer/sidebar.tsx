@@ -10,11 +10,12 @@ import {
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import { PanelLeftCloseIcon, SearchIcon, SquareTerminalIcon } from "lucide-react";
+import { GitCompareIcon, PanelLeftCloseIcon, SearchIcon, SquareTerminalIcon } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useConnections } from "@/lib/store/connections";
 import { useBrowseState } from "@/lib/store/explorer";
 import { SHORTCUTS } from "@/lib/shortcuts";
 import { tableKey, type TableInfo } from "@/lib/types";
@@ -71,10 +72,37 @@ function filterTables(
   });
 }
 
+function NavLink({
+  href,
+  active,
+  shortcut,
+  children,
+}: {
+  href: string;
+  active: boolean;
+  shortcut: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      aria-current={active ? "page" : undefined}
+      className={cn(
+        buttonVariants({ variant: active ? "secondary" : "ghost", size: "sm" }),
+        "h-8 w-full justify-start px-2",
+      )}
+    >
+      {children}
+      <kbd className="ml-auto font-mono text-[10px] text-muted-foreground/55">{shortcut}</kbd>
+    </Link>
+  );
+}
+
 export function Sidebar({ width: persistedWidth, onWidthChange, onCollapse }: Props) {
   const pathname = usePathname();
   const { connection, tables } = useExplorerContext();
   const [browse, setBrowse] = useBrowseState(connection.id);
+  const comparable = useConnections((state) => state.connections.length > 1);
   const [width, setWidth] = useState(() => clampSidebarWidth(persistedWidth));
   const resize = useRef<SidebarResize | null>(null);
 
@@ -93,7 +121,9 @@ export function Sidebar({ width: persistedWidth, onWidthChange, onCollapse }: Pr
     () => filterTables(tables.data ?? [], browse.search, selectedSchemas),
     [tables.data, browse.search, selectedSchemas],
   );
-  const queryHref = `/${encodeURIComponent(connection.id)}/query`;
+  const base = `/${encodeURIComponent(connection.id)}`;
+  const queryHref = `${base}/query`;
+  const diffHref = `${base}/diff`;
 
   function expandMatchingSchemas(search: string, selected: string[] | null) {
     const matches = filterTables(tables.data ?? [], search, selected);
@@ -219,20 +249,22 @@ export function Sidebar({ width: persistedWidth, onWidthChange, onCollapse }: Pr
             <PanelLeftCloseIcon />
           </Button>
         </div>
-        <Link
-          href={queryHref}
-          aria-current={pathname === queryHref ? "page" : undefined}
-          className={cn(
-            buttonVariants({ variant: pathname === queryHref ? "secondary" : "ghost", size: "sm" }),
-            "h-8 w-full justify-start px-2",
+        <div className="flex flex-col gap-0.5">
+          <NavLink href={queryHref} active={pathname === queryHref} shortcut={SHORTCUTS.sqlEditor}>
+            <SquareTerminalIcon data-icon="inline-start" />
+            SQL query
+          </NavLink>
+          {comparable && (
+            <NavLink
+              href={diffHref}
+              active={pathname === diffHref}
+              shortcut={SHORTCUTS.compareSchema}
+            >
+              <GitCompareIcon data-icon="inline-start" />
+              Compare schema
+            </NavLink>
           )}
-        >
-          <SquareTerminalIcon data-icon="inline-start" />
-          SQL query
-          <kbd className="ml-auto font-mono text-[10px] text-muted-foreground/55">
-            {SHORTCUTS.sqlEditor}
-          </kbd>
-        </Link>
+        </div>
         <div className="relative">
           <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input

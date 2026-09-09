@@ -12,6 +12,7 @@ import type {
   RowUpdateResult,
   RowsQuery,
   RowsResult,
+  SchemaSnapshot,
   SqlQueryResult,
   TableDefinition,
   TableInfo,
@@ -78,4 +79,7 @@ export const api = {
 
   definition: (connectionUrl: string, table: TableRef, signal?: AbortSignal) =>
     post<TableDefinition>("/api/definition", { connectionUrl, table }, signal),
+
+  schema: (connectionUrl: string, signal?: AbortSignal) =>
+    post<SchemaSnapshot>("/api/schema", { connectionUrl }, signal),
 };

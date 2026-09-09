@@ -5,7 +5,12 @@ import { useParams, useRouter } from "next/navigation";
 import { CheckIcon } from "lucide-react";
 import { ConnectionDialog } from "@/components/connections/connection-dialog";
 import { useConnections } from "@/lib/store/connections";
-import { useBrowseState, useExplorer, syncLayoutSharing } from "@/lib/store/explorer";
+import {
+  useBrowseState,
+  useCompareTarget,
+  useExplorer,
+  syncLayoutSharing,
+} from "@/lib/store/explorer";
 import { useThemeStore } from "@/lib/store/theme";
 import { applyTheme, THEMES, type Theme } from "@/lib/themes";
 import { dismissPalettes, registerPaletteCloser } from "@/lib/palettes";
@@ -14,6 +19,7 @@ import { rankFuzzy } from "@/lib/fuzzy";
 import { tableKey, type TableRef } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useExplorerContext } from "./explorer-provider";
+import { useSchemaDiff } from "./use-schema-diff";
 import { useSqlEditor } from "./use-sql-editor";
 import { useSwitchConnection } from "./use-switch-connection";
 
@@ -74,6 +80,8 @@ export function CommandPalette() {
   const params = useParams<{ connectionId: string; schema?: string; table?: string }>();
   const { connection, tables } = useExplorerContext();
   const sqlEditor = useSqlEditor();
+  const schemaDiff = useSchemaDiff();
+  const compare = useCompareTarget(connection.id);
   const switchConnection = useSwitchConnection();
   const addConnection = useConnections((state) => state.add);
   const [browse, setBrowse] = useBrowseState(connection.id);
@@ -113,6 +121,16 @@ export function CommandPalette() {
         enabled: switchConnection.enabled,
         shortcut: SHORTCUTS.switchConnection,
         run: () => void switchConnection.run(),
+      },
+      {
+        id: "compare-schema",
+        title: compare.target
+          ? `Compare Schema with ${compare.target.name}`
+          : "Compare Schema",
+        keywords: ["diff", "difference", "migration", "drift", "prod", "dev", "schema", "compare"],
+        enabled: compare.target !== null,
+        shortcut: SHORTCUTS.compareSchema,
+        run: () => schemaDiff.toggle(),
       },
       {
         id: "search-tables",
@@ -218,8 +236,10 @@ export function CommandPalette() {
     ];
   }, [
     browse.pinnedTables,
+    compare.target,
     connection.id,
     pinned,
+    schemaDiff,
     setBrowse,
     sqlEditor,
     switchConnection,

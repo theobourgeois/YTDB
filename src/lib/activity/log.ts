@@ -132,6 +132,13 @@ export function summarizeResult(
     }
     case "definition":
       return { sqlLength: typeof value?.sql === "string" ? value.sql.length : 0 };
+    case "schema":
+      return {
+        relations: rowCount(value?.relations),
+        enums: rowCount(value?.enums),
+        functions: rowCount(value?.functions),
+        extensions: rowCount(value?.extensions),
+      };
     default:
       return undefined;
   }
