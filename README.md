@@ -50,6 +50,11 @@ environment, see where every environment stands on it, or revert it. The list sh
 a glance — `dev 8/8`, `prod 0/8` — so a migration that has been through dev but not prod is obvious
 without opening anything.
 
+Imported folders are held in the browser, so the list is per-origin: the hosted UI and a local
+checkout do not share one. What the databases themselves recorded is not per-origin, so a migration
+their ledgers know about but this browser has no files for is listed anyway, with how far each
+environment got — drop its folder to manage it again.
+
 Drop in whatever you have to start one. A flat folder of migrations is enough:
 
 ```text

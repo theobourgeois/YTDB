@@ -11,7 +11,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAsync } from "@/hooks/use-async";
 import { api } from "@/lib/api";
 import { buildHistory } from "@/lib/migrations/history";
-import { summarize, type SetSummary } from "@/lib/migrations/status";
+import { discoverMigrations, summarize, type DiscoveredMigration, type SetSummary } from "@/lib/migrations/status";
 import type { LedgerResult, MigrationSet } from "@/lib/migrations/types";
 import { useSharedLayoutPartners } from "@/lib/store/explorer";
 import { useMigrations } from "@/lib/store/migrations";
@@ -100,6 +100,18 @@ export function MigrationsIndex() {
     [sets],
   );
 
+  const discovered = useMemo(
+    () =>
+      discoverMigrations(
+        environmentConnections.map((item) => ({
+          connection: item,
+          ledger: ledgers.data?.[item.id]?.ledger ?? null,
+        })),
+        sets.map((item) => item.name),
+      ),
+    [environmentConnections, ledgers.data, sets],
+  );
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <header className="flex h-11 shrink-0 items-center gap-2 border-b px-3">
@@ -124,7 +136,7 @@ export function MigrationsIndex() {
             loading={ledgers.loading}
           />
         </ScrollArea>
-      ) : sets.length === 0 ? (
+      ) : sets.length === 0 && discovered.length === 0 ? (
         <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 p-6">
           <MigrationDropZone onFiles={onFiles} className="w-full max-w-xl" />
           <p className="max-w-xl text-center text-xs text-muted-foreground">
@@ -147,11 +159,26 @@ export function MigrationsIndex() {
               }))}
             />
           ))}
+          {discovered.length > 0 && (
+            <div className="border-b bg-muted/20">
+              <p className="px-4 py-2 text-xs text-muted-foreground">
+                Already run against these databases, but not imported into this browser. Drop the
+                folder to manage it here.
+              </p>
+              {discovered.map((item) => (
+                <DiscoveredRow key={item.name} migration={item} />
+              ))}
+            </div>
+          )}
           <div className="p-4">
             <MigrationDropZone
               onFiles={onFiles}
               compact
-              hint="Drop another folder to start a new migration."
+              hint={
+                sets.length === 0
+                  ? "Drop a folder of .sql files to start a migration."
+                  : "Drop another folder to start a new migration."
+              }
               className="w-full"
             />
           </div>
@@ -159,17 +186,22 @@ export function MigrationsIndex() {
       )}
 
       <MigrationsFooter
-        caption={
-          sets.length === 0
-            ? "No migrations yet"
-            : `${sets.length} migration${sets.length === 1 ? "" : "s"}`
-        }
+        caption={caption(sets.length, discovered.length)}
         pane={pane}
         onPaneChange={setPane}
         historyCount={historyEvents.length}
       />
     </div>
   );
+}
+
+function caption(imported: number, discovered: number): string {
+  if (imported === 0 && discovered === 0) return "No migrations yet";
+  const parts = [`${imported} migration${imported === 1 ? "" : "s"}`];
+  if (discovered > 0) {
+    parts.push(`${discovered} more run against these databases but not imported here`);
+  }
+  return parts.join(" · ");
 }
 
 type CardEnvironment = {
@@ -209,6 +241,37 @@ function MigrationCard({
       </div>
       <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground/60" />
     </Link>
+  );
+}
+
+/** A migration the ledgers know about but this browser has no files for. */
+function DiscoveredRow({ migration }: { migration: DiscoveredMigration }) {
+  return (
+    <div className="flex items-center gap-3 border-t px-4 py-2.5 first:border-t-0">
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm">{migration.name}</p>
+        <p className="truncate text-xs text-muted-foreground">
+          {migration.total} migration{migration.total === 1 ? "" : "s"}
+          {migration.versions.length > 0 &&
+            ` · ${migration.versions[0]}–${migration.versions.at(-1)}`}{" "}
+          · files not here
+        </p>
+      </div>
+      <div className="flex shrink-0 items-center gap-1.5">
+        {migration.applied.map((environment) => (
+          <span
+            key={environment.connectionId}
+            className="flex h-6 items-center gap-1.5 rounded-lg border border-dashed px-2 text-[11px] text-muted-foreground"
+          >
+            <span className="max-w-24 truncate">{environment.connectionName}</span>
+            <span className="tabular-nums">
+              {environment.count}/{migration.total}
+            </span>
+          </span>
+        ))}
+      </div>
+      <span className="w-4 shrink-0" />
+    </div>
   );
 }
 

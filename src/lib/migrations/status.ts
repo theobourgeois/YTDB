@@ -1,4 +1,5 @@
 import { compareVersions } from "./parse";
+import type { Connection } from "../types";
 import type { LedgerEntry, LedgerResult, MigrationSet, MigrationStep, StepStatus } from "./types";
 
 export type SetSummary = {
@@ -124,4 +125,61 @@ export function newestApplied(
     if (applied.has(step.version)) return step;
   }
   return null;
+}
+
+export type LedgerSource = { connection: Connection; ledger: LedgerResult | null };
+
+/**
+ * A migration these databases have run that is not imported here.
+ *
+ * The imported folders live in this browser, but the ledgers live in the
+ * databases — so a migration applied from another machine, another browser, or
+ * before a reinstall is invisible to the list while being plainly recorded in
+ * the database. This is how it gets said out loud instead.
+ */
+export type DiscoveredMigration = {
+  name: string;
+  versions: string[];
+  /** How many of its versions each environment has. */
+  applied: { connectionId: string; connectionName: string; count: number }[];
+  total: number;
+};
+
+export function discoverMigrations(
+  sources: LedgerSource[],
+  importedNames: string[],
+): DiscoveredMigration[] {
+  const known = new Set(importedNames.map((name) => name.toLowerCase()));
+  const groups = new Map<string, Map<string, Set<string>>>();
+
+  for (const source of sources) {
+    for (const entry of source.ledger?.entries ?? []) {
+      const name = entry.setName?.trim();
+      if (!name || known.has(name.toLowerCase())) continue;
+      const byConnection = groups.get(name) ?? new Map<string, Set<string>>();
+      const versions = byConnection.get(source.connection.id) ?? new Set<string>();
+      versions.add(entry.version);
+      byConnection.set(source.connection.id, versions);
+      groups.set(name, byConnection);
+    }
+  }
+
+  return [...groups.entries()]
+    .map(([name, byConnection]) => {
+      const all = new Set<string>();
+      for (const versions of byConnection.values()) {
+        for (const version of versions) all.add(version);
+      }
+      return {
+        name,
+        versions: [...all].sort(compareVersions),
+        total: all.size,
+        applied: sources.map((source) => ({
+          connectionId: source.connection.id,
+          connectionName: source.connection.name,
+          count: byConnection.get(source.connection.id)?.size ?? 0,
+        })),
+      };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
 }
