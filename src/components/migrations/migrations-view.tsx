@@ -144,6 +144,14 @@ export function MigrationsView() {
     [environmentConnections, ledgers.data, activeSet],
   );
 
+  const environmentIds = useMemo(
+    () => new Set(environmentConnections.map((item) => item.id)),
+    [environmentConnections],
+  );
+  const historyCount = useMigrations(
+    (state) => state.history.filter((record) => environmentIds.has(record.connectionId)).length,
+  );
+
   const summary = summarize(activeSet, currentLedger);
   const foreign = useMemo(() => foreignEntries(activeSet, currentLedger), [activeSet, currentLedger]);
   const newest = newestApplied(activeSet, currentLedger);
@@ -323,17 +331,29 @@ export function MigrationsView() {
     return (
       <div className="flex min-h-0 flex-1 flex-col">
         <Header />
-        <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 p-6">
-          <MigrationDropZone onFiles={onFiles} className="w-full max-w-xl" />
-          <p className="max-w-xl text-center text-xs text-muted-foreground">
-            YTDB records every migration it runs in{" "}
-            <code className="font-mono">
-              {ledgerSchema}.{LEDGER_TABLE}
-            </code>{" "}
-            in the database it ran against, so each environment answers for itself what it has and
-            has not had.
-          </p>
-        </div>
+        {pane === "history" ? (
+          <ScrollArea className="min-h-0 flex-1">
+            <MigrationHistory connectionIds={environmentConnections.map((item) => item.id)} />
+          </ScrollArea>
+        ) : (
+          <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 p-6">
+            <MigrationDropZone onFiles={onFiles} className="w-full max-w-xl" />
+            <p className="max-w-xl text-center text-xs text-muted-foreground">
+              YTDB records every migration it runs in{" "}
+              <code className="font-mono">
+                {ledgerSchema}.{LEDGER_TABLE}
+              </code>{" "}
+              in the database it ran against, so each environment answers for itself what it has
+              and has not had.
+            </p>
+          </div>
+        )}
+        <Footer
+          caption="No migrations imported yet"
+          pane={pane}
+          onPaneChange={setPane}
+          historyCount={historyCount}
+        />
       </div>
     );
   }
@@ -447,10 +467,7 @@ export function MigrationsView() {
       <div className="relative flex min-h-0 flex-1 flex-col">
         {pane === "history" ? (
           <ScrollArea className="min-h-0 flex-1">
-            <MigrationHistory
-              setId={activeSet?.id ?? ""}
-              connectionIds={environmentConnections.map((item) => item.id)}
-            />
+            <MigrationHistory connectionIds={environmentConnections.map((item) => item.id)} />
           </ScrollArea>
         ) : current?.error ? (
           <p className="flex-1 px-4 py-6 font-mono text-xs text-destructive">{current.error}</p>
@@ -530,30 +547,20 @@ export function MigrationsView() {
         )}
       </div>
 
-      <footer className="flex items-center gap-2 border-t px-4 py-1.5 text-xs text-muted-foreground">
-        <span className="min-w-0 truncate">
-          {statusLine({
+      <Footer
+        pane={pane}
+        onPaneChange={setPane}
+        historyCount={historyCount}
+        caption={statusLine({
             name: activeSet?.name ?? "",
             connectionName: connection.name,
             summary,
             initialized: currentLedger?.initialized ?? null,
             loading: ledgers.loading,
-            foundIn: currentLedger?.initialized ? currentLedger.schema : null,
-            configuredSchema: ledgerSchema,
-          })}
-        </span>
-        <div className="ml-auto">
-          <PaneToggle
-            label="Migrations pane"
-            value={pane}
-            onChange={setPane}
-            options={[
-              { value: "migrations", label: "Migrations" },
-              { value: "history", label: "History" },
-            ]}
-          />
-        </div>
-      </footer>
+          foundIn: currentLedger?.initialized ? currentLedger.schema : null,
+          configuredSchema: ledgerSchema,
+        })}
+      />
 
       <input
         ref={revertInputRef}
@@ -598,6 +605,35 @@ export function MigrationsView() {
         />
       )}
     </div>
+  );
+}
+
+function Footer({
+  caption,
+  pane,
+  onPaneChange,
+  historyCount,
+}: {
+  caption: string;
+  pane: Pane;
+  onPaneChange: (pane: Pane) => void;
+  historyCount: number;
+}) {
+  return (
+    <footer className="flex shrink-0 items-center gap-2 border-t px-4 py-1.5 text-xs text-muted-foreground">
+      <span className="min-w-0 truncate">{caption}</span>
+      <div className="ml-auto">
+        <PaneToggle
+          label="Migrations pane"
+          value={pane}
+          onChange={onPaneChange}
+          options={[
+            { value: "migrations", label: "Migrations" },
+            { value: "history", label: historyCount > 0 ? `History (${historyCount})` : "History" },
+          ]}
+        />
+      </div>
+    </footer>
   );
 }
 

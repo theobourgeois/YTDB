@@ -6,7 +6,6 @@ import { useMigrations, type MigrationRunRecord } from "@/lib/store/migrations";
 import { cn } from "@/lib/utils";
 
 type Props = {
-  setId: string;
   /** Empty shows every connection; otherwise history is narrowed to these. */
   connectionIds: string[];
 };
@@ -50,26 +49,35 @@ function Row({ record }: { record: MigrationRunRecord }) {
         )}
       </span>
       <span className="shrink-0 text-muted-foreground">{record.connectionName}</span>
+      <span className="hidden max-w-32 shrink-0 truncate text-muted-foreground/60 lg:inline">
+        {record.setName}
+      </span>
       <span className="shrink-0 tabular-nums text-muted-foreground/70">{record.durationMs} ms</span>
       <span className="shrink-0 text-muted-foreground/70">{when(record.ranAt)}</span>
     </div>
   );
 }
 
-/** Every run attempt, including the ones that failed — which the ledger never keeps. */
-export function MigrationHistory({ setId, connectionIds }: Props) {
+/**
+ * Every run attempt, including the ones that failed — which the ledger never keeps.
+ *
+ * Deliberately not scoped to the set that is open: forgetting a folder should not
+ * erase the record of what was run from it, and the question this answers is what
+ * happened to these databases, not to one folder.
+ */
+export function MigrationHistory({ connectionIds }: Props) {
   const history = useMigrations((state) => state.history);
   const clearHistory = useMigrations((state) => state.clearHistory);
   const scope = new Set(connectionIds);
   const records = history.filter(
-    (record) =>
-      record.setId === setId && (scope.size === 0 || scope.has(record.connectionId)),
+    (record) => scope.size === 0 || scope.has(record.connectionId),
   );
 
   if (records.length === 0) {
     return (
       <p className="px-4 py-6 text-sm text-muted-foreground">
-        Nothing has been run from this folder yet.
+        Nothing has been applied or reverted from here yet. Runs show up here with their
+        duration and any error, including the failures the ledger never keeps.
       </p>
     );
   }
@@ -80,7 +88,7 @@ export function MigrationHistory({ setId, connectionIds }: Props) {
         <span className="text-xs text-muted-foreground">
           {records.length} run{records.length === 1 ? "" : "s"}, newest first
         </span>
-        <Button size="xs" variant="ghost" onClick={() => clearHistory(setId)}>
+        <Button size="xs" variant="ghost" onClick={() => clearHistory()}>
           Clear
         </Button>
       </div>
