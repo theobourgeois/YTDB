@@ -48,6 +48,7 @@ import {
 } from "@/lib/migrations/types";
 import { useSharedLayoutPartners, useExplorer } from "@/lib/store/explorer";
 import type { MergeReport } from "@/lib/migrations/parse";
+import { buildHistory } from "@/lib/migrations/history";
 import { useActiveSet, useMigrations } from "@/lib/store/migrations";
 import { useQueries } from "@/lib/store/queries";
 import { cn } from "@/lib/utils";
@@ -144,12 +145,14 @@ export function MigrationsView() {
     [environmentConnections, ledgers.data, activeSet],
   );
 
-  const environmentIds = useMemo(
-    () => new Set(environmentConnections.map((item) => item.id)),
-    [environmentConnections],
-  );
-  const historyCount = useMigrations(
-    (state) => state.history.filter((record) => environmentIds.has(record.connectionId)).length,
+  const runRecords = useMigrations((state) => state.history);
+  const historyEvents = useMemo(
+    () =>
+      buildHistory(
+        environments.map((item) => ({ connection: item.connection, ledger: item.ledger })),
+        runRecords,
+      ),
+    [environments, runRecords],
   );
 
   const summary = summarize(activeSet, currentLedger);
@@ -333,7 +336,11 @@ export function MigrationsView() {
         <Header />
         {pane === "history" ? (
           <ScrollArea className="min-h-0 flex-1">
-            <MigrationHistory connectionIds={environmentConnections.map((item) => item.id)} />
+            <MigrationHistory
+              events={historyEvents}
+              connections={environmentConnections}
+              loading={ledgers.loading}
+            />
           </ScrollArea>
         ) : (
           <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 p-6">
@@ -352,7 +359,7 @@ export function MigrationsView() {
           caption="No migrations imported yet"
           pane={pane}
           onPaneChange={setPane}
-          historyCount={historyCount}
+          historyCount={historyEvents.length}
         />
       </div>
     );
@@ -467,7 +474,11 @@ export function MigrationsView() {
       <div className="relative flex min-h-0 flex-1 flex-col">
         {pane === "history" ? (
           <ScrollArea className="min-h-0 flex-1">
-            <MigrationHistory connectionIds={environmentConnections.map((item) => item.id)} />
+            <MigrationHistory
+              events={historyEvents}
+              connections={environmentConnections}
+              loading={ledgers.loading}
+            />
           </ScrollArea>
         ) : current?.error ? (
           <p className="flex-1 px-4 py-6 font-mono text-xs text-destructive">{current.error}</p>
@@ -550,7 +561,7 @@ export function MigrationsView() {
       <Footer
         pane={pane}
         onPaneChange={setPane}
-        historyCount={historyCount}
+        historyCount={historyEvents.length}
         caption={statusLine({
             name: activeSet?.name ?? "",
             connectionName: connection.name,

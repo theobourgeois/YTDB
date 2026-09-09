@@ -109,8 +109,11 @@ any SQL, which is how you baseline an existing dev or prod. **Mark as not applie
 out of the ledger, again without touching the schema. Both say plainly in the confirmation that
 nothing will run.
 
-**History** keeps every run, including the failures the ledger never sees, with the connection,
-duration, and error. The run itself is also appended to the [activity log](#activity-log).
+**History** is both records at once, newest first. Each database's ledger says what it has applied,
+when, and under which role — including runs made from someone else's machine, since that record lives
+in the database rather than in a browser. This browser's own log adds what a ledger cannot keep:
+reverts, failures with their error, and rows written without running anything. A run in both is one
+event, not two. Every run is also appended to the [activity log](#activity-log).
 
 A file that already wraps itself in a single `BEGIN` … `COMMIT` — how most migration folders are
 written — needs no changes. YTDB takes that transaction over so its own ledger write joins it, and
