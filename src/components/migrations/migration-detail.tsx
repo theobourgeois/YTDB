@@ -4,14 +4,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useRef, useState } from "react";
 import {
-  ChevronsUpDownIcon,
+  ChevronLeftIcon,
   ClipboardCheckIcon,
   FolderUpIcon,
   Layers2Icon,
   MoreHorizontalIcon,
   PencilIcon,
   PlayIcon,
-  PlusIcon,
   RefreshCwIcon,
   TableIcon,
   TriangleAlertIcon,
@@ -26,7 +25,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { PaneToggle } from "@/components/ui/pane-toggle";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAsync } from "@/hooks/use-async";
 import { api } from "@/lib/api";
@@ -49,17 +47,16 @@ import {
 import { useSharedLayoutPartners, useExplorer } from "@/lib/store/explorer";
 import type { MergeReport } from "@/lib/migrations/parse";
 import { buildHistory } from "@/lib/migrations/history";
-import { useActiveSet, useMigrations } from "@/lib/store/migrations";
+import { useMigrationSet, useMigrations } from "@/lib/store/migrations";
 import { useQueries } from "@/lib/store/queries";
 import { cn } from "@/lib/utils";
 import { EnvironmentHeader, TargetPicker, type Environment } from "./environment-header";
 import { LedgerSchemaDialog } from "./ledger-schema-dialog";
 import { MigrationHistory } from "./migration-history";
+import { MigrationsFooter, type MigrationsPane } from "./migrations-footer";
 import { MigrationDropZone, useMigrationImport, type FolderDrop } from "./migration-import";
 import { MigrationRow, StatusMark } from "./migration-row";
 import { MigrationRunDialog, type RunProgress } from "./run-dialog";
-
-type Pane = "migrations" | "history";
 
 type LedgerRead = { ledger: LedgerResult | null; error: string | null };
 
@@ -69,25 +66,22 @@ type PendingRun = RunPlan & {
   recordOnly?: boolean;
 };
 
-export function MigrationsView() {
+export function MigrationDetail({ setId }: { setId: string }) {
   const router = useRouter();
   const { connection, tables } = useExplorerContext();
-  const sets = useMigrations((state) => state.sets);
-  const createSet = useMigrations((state) => state.createSet);
   const addFiles = useMigrations((state) => state.addFiles);
   const renameSet = useMigrations((state) => state.renameSet);
   const removeSet = useMigrations((state) => state.removeSet);
   const removeStep = useMigrations((state) => state.removeStep);
-  const chooseSet = useMigrations((state) => state.setActive);
   const recordRun = useMigrations((state) => state.record);
   const ledgerSchema = useMigrations((state) => state.ledgerSchema);
   const setLedgerSchema = useMigrations((state) => state.setLedgerSchema);
-  const activeSet = useActiveSet(connection.id);
+  const activeSet = useMigrationSet(setId);
   const partners = useSharedLayoutPartners(connection.id);
   const setDraft = useQueries((state) => state.setDraft);
   const clearActiveSaved = useQueries((state) => state.setActiveSaved);
 
-  const [pane, setPane] = useState<Pane>("migrations");
+  const [pane, setPane] = useState<MigrationsPane>("migrations");
   const [expanded, setExpanded] = useState<string[]>([]);
   const [pendingRun, setPendingRun] = useState<PendingRun | null>(null);
   const [progress, setProgress] = useState<RunProgress[] | null>(null);
@@ -145,33 +139,30 @@ export function MigrationsView() {
     [environmentConnections, ledgers.data, activeSet],
   );
 
+  const indexHref = `/${encodeURIComponent(connection.id)}/migrations`;
   const runRecords = useMigrations((state) => state.history);
-  const historyEvents = useMemo(
-    () =>
-      buildHistory(
-        environments.map((item) => ({ connection: item.connection, ledger: item.ledger })),
-        runRecords,
-      ),
-    [environments, runRecords],
-  );
+  // Scoped to this migration: the index carries the history of everything.
+  const historyEvents = useMemo(() => {
+    const all = buildHistory(
+      environments.map((item) => ({ connection: item.connection, ledger: item.ledger })),
+      runRecords,
+    );
+    const versions = new Set(activeSet?.steps.map((step) => step.version) ?? []);
+    const name = activeSet?.name;
+    return all.filter((event) => versions.has(event.version) || event.setName === name);
+  }, [environments, runRecords, activeSet]);
 
   const summary = summarize(activeSet, currentLedger);
   const foreign = useMemo(() => foreignEntries(activeSet, currentLedger), [activeSet, currentLedger]);
   const newest = newestApplied(activeSet, currentLedger);
 
-  /**
-   * Files join the set already open, so a folder can arrive in pieces. With no set
-   * open yet, one is started and named after whatever was dropped.
-   */
+  /** Files join this migration, so a folder can arrive in pieces. */
   const onFiles = useCallback(
     (drop: FolderDrop) => {
-      const setId = activeSet?.id ?? createSet(drop.name);
-      const report = addFiles(setId, drop.files);
-      chooseSet(connection.id, setId);
-      setLastImport(report);
+      setLastImport(addFiles(setId, drop.files));
       setPane("migrations");
     },
-    [activeSet?.id, createSet, addFiles, chooseSet, connection.id],
+    [addFiles, setId],
   );
 
   const pageImport = useMigrationImport(onFiles);
@@ -295,19 +286,17 @@ export function MigrationsView() {
     router.push(`/${encodeURIComponent(connection.id)}/diff`);
   }
 
-  function newSet() {
-    const name = window.prompt("Name this migration set", "Migrations");
-    if (name === null) return;
-    const id = createSet(name.trim() || "Migrations");
-    chooseSet(connection.id, id);
-    setLastImport(null);
-  }
-
   function renameActiveSet() {
     if (!activeSet) return;
-    const name = window.prompt("Rename this migration set", activeSet.name);
+    const name = window.prompt("Rename this migration", activeSet.name);
     if (name === null) return;
     renameSet(activeSet.id, name);
+  }
+
+  function forgetActiveSet() {
+    if (!activeSet) return;
+    removeSet(activeSet.id);
+    router.push(indexHref);
   }
 
   /** Files chosen for one migration's revert are labelled so the merge pairs them up. */
@@ -330,37 +319,16 @@ export function MigrationsView() {
     );
   }
 
-  if (sets.length === 0) {
+  if (!activeSet) {
     return (
       <div className="flex min-h-0 flex-1 flex-col">
-        <Header />
-        {pane === "history" ? (
-          <ScrollArea className="min-h-0 flex-1">
-            <MigrationHistory
-              events={historyEvents}
-              connections={environmentConnections}
-              loading={ledgers.loading}
-            />
-          </ScrollArea>
-        ) : (
-          <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 p-6">
-            <MigrationDropZone onFiles={onFiles} className="w-full max-w-xl" />
-            <p className="max-w-xl text-center text-xs text-muted-foreground">
-              YTDB records every migration it runs in{" "}
-              <code className="font-mono">
-                {ledgerSchema}.{LEDGER_TABLE}
-              </code>{" "}
-              in the database it ran against, so each environment answers for itself what it has
-              and has not had.
-            </p>
-          </div>
-        )}
-        <Footer
-          caption="No migrations imported yet"
-          pane={pane}
-          onPaneChange={setPane}
-          historyCount={historyEvents.length}
-        />
+        <Header name="Not found" indexHref={indexHref} />
+        <div className="flex flex-1 flex-col items-center justify-center gap-2 text-muted-foreground">
+          <p className="text-sm">That migration is no longer here.</p>
+          <Link href={indexHref} className="text-foreground underline underline-offset-4">
+            All migrations
+          </Link>
+        </div>
       </div>
     );
   }
@@ -378,16 +346,7 @@ export function MigrationsView() {
         setDragging(true);
       }}
     >
-      <Header>
-        <SetPicker
-          activeName={activeSet?.name ?? "No folder"}
-          sets={sets.map((item) => ({ id: item.id, name: item.name, steps: item.steps.length }))}
-          activeId={activeSet?.id ?? null}
-          onSelect={(id) => chooseSet(connection.id, id)}
-          onCreate={newSet}
-          onRename={renameActiveSet}
-          onRemove={(id) => removeSet(id)}
-        />
+      <Header name={activeSet?.name ?? ""} indexHref={indexHref}>
         <TargetPicker
           environments={environments}
           targetId={connection.id}
@@ -432,9 +391,17 @@ export function MigrationsView() {
                 Revert everything on {connection.name}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={renameActiveSet}>
+                <PencilIcon />
+                Rename this migration
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setEditingLedger(true)}>
                 <TableIcon />
                 Ledger table: {ledgerSchema}.{LEDGER_TABLE}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem variant="destructive" onClick={forgetActiveSet}>
+                Forget this migration
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -558,10 +525,11 @@ export function MigrationsView() {
         )}
       </div>
 
-      <Footer
+      <MigrationsFooter
         pane={pane}
         onPaneChange={setPane}
         historyCount={historyEvents.length}
+        migrationsLabel="Files"
         caption={statusLine({
             name: activeSet?.name ?? "",
             connectionName: connection.name,
@@ -619,97 +587,28 @@ export function MigrationsView() {
   );
 }
 
-function Footer({
-  caption,
-  pane,
-  onPaneChange,
-  historyCount,
+function Header({
+  name,
+  indexHref,
+  children,
 }: {
-  caption: string;
-  pane: Pane;
-  onPaneChange: (pane: Pane) => void;
-  historyCount: number;
+  name: string;
+  indexHref: string;
+  children?: React.ReactNode;
 }) {
-  return (
-    <footer className="flex shrink-0 items-center gap-2 border-t px-4 py-1.5 text-xs text-muted-foreground">
-      <span className="min-w-0 truncate">{caption}</span>
-      <div className="ml-auto">
-        <PaneToggle
-          label="Migrations pane"
-          value={pane}
-          onChange={onPaneChange}
-          options={[
-            { value: "migrations", label: "Migrations" },
-            { value: "history", label: historyCount > 0 ? `History (${historyCount})` : "History" },
-          ]}
-        />
-      </div>
-    </footer>
-  );
-}
-
-function Header({ children }: { children?: React.ReactNode }) {
   return (
     <header className="flex h-11 shrink-0 items-center gap-2 border-b px-3">
-      <Layers2Icon className="size-4 shrink-0 text-muted-foreground" />
-      <span className="font-medium">Migrations</span>
+      <Link
+        href={indexHref}
+        title="Back to all migrations"
+        className="flex shrink-0 items-center gap-1.5 rounded-md px-1 py-0.5 text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60"
+      >
+        <ChevronLeftIcon className="size-4" />
+        <Layers2Icon className="size-4" />
+      </Link>
+      <span className="min-w-0 truncate font-medium">{name}</span>
       {children}
     </header>
-  );
-}
-
-function SetPicker({
-  activeId,
-  activeName,
-  sets,
-  onSelect,
-  onCreate,
-  onRename,
-  onRemove,
-}: {
-  activeId: string | null;
-  activeName: string;
-  sets: { id: string; name: string; steps: number }[];
-  onSelect: (id: string) => void;
-  onCreate: () => void;
-  onRename: () => void;
-  onRemove: (id: string) => void;
-}) {
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger className="flex h-7 min-w-0 cursor-pointer items-center gap-1.5 rounded-lg bg-muted/70 px-2 text-xs outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 data-open:bg-muted">
-        <span className="max-w-40 truncate font-medium">{activeName}</span>
-        <ChevronsUpDownIcon className="size-3 shrink-0 text-muted-foreground" />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="min-w-56">
-        {sets.map((item) => (
-          <DropdownMenuItem
-            key={item.id}
-            onClick={() => onSelect(item.id)}
-            className={item.id === activeId ? "font-medium" : undefined}
-          >
-            <span className="min-w-0 flex-1 truncate">{item.name}</span>
-            <span className="shrink-0 tabular-nums text-muted-foreground">{item.steps}</span>
-          </DropdownMenuItem>
-        ))}
-        {sets.length > 0 && <DropdownMenuSeparator />}
-        <DropdownMenuItem onClick={onCreate}>
-          <PlusIcon />
-          New empty set
-        </DropdownMenuItem>
-        {activeId && (
-          <>
-            <DropdownMenuItem onClick={onRename}>
-              <PencilIcon />
-              Rename
-            </DropdownMenuItem>
-            <DropdownMenuItem variant="destructive" onClick={() => onRemove(activeId)}>
-              Forget this set
-            </DropdownMenuItem>
-          </>
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
   );
 }
 

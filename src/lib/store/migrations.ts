@@ -36,8 +36,6 @@ export type MigrationRunRecord = {
 
 type MigrationsState = {
   sets: MigrationSet[];
-  /** The set each connection is looking at, by connection id. */
-  activeSet: Record<string, string>;
   history: MigrationRunRecord[];
   /**
    * Schema the ledger table lives in, for every connection. Kept workspace-wide so
@@ -53,7 +51,6 @@ type MigrationsState = {
   removeSet: (id: string) => void;
   /** Drops one migration from a set, without touching any database. */
   removeStep: (setId: string, version: string) => void;
-  setActive: (connectionId: string, setId: string) => void;
   record: (entry: Omit<MigrationRunRecord, "id" | "ranAt">) => void;
   clearHistory: (setId?: string) => void;
 };
@@ -62,7 +59,6 @@ export const useMigrations = create<MigrationsState>()(
   persist(
     (set, get) => ({
       sets: [],
-      activeSet: {},
       history: [],
       ledgerSchema: DEFAULT_LEDGER_SCHEMA,
       setLedgerSchema: (schema) => {
@@ -115,17 +111,9 @@ export const useMigrations = create<MigrationsState>()(
         })),
       removeSet: (id) => {
         const removed = get().sets.find((candidate) => candidate.id === id);
-        set((state) => {
-          const activeSet = { ...state.activeSet };
-          for (const [connectionId, setId] of Object.entries(activeSet)) {
-            if (setId === id) delete activeSet[connectionId];
-          }
-          return { sets: state.sets.filter((candidate) => candidate.id !== id), activeSet };
-        });
+        set((state) => ({ sets: state.sets.filter((candidate) => candidate.id !== id) }));
         logUiAction("migrations.remove", { name: removed?.name });
       },
-      setActive: (connectionId, setId) =>
-        set((state) => ({ activeSet: { ...state.activeSet, [connectionId]: setId } })),
       record: (entry) =>
         set((state) => ({
           history: [
@@ -142,12 +130,6 @@ export const useMigrations = create<MigrationsState>()(
   ),
 );
 
-/** The set a connection is working with: the one it chose, else the newest imported. */
-export function useActiveSet(connectionId: string): MigrationSet | null {
-  const sets = useMigrations((state) => state.sets);
-  const activeId = useMigrations((state) => state.activeSet[connectionId]);
-  if (sets.length === 0) return null;
-  const chosen = sets.find((candidate) => candidate.id === activeId);
-  if (chosen) return chosen;
-  return [...sets].sort((a, b) => b.importedAt - a.importedAt)[0] ?? null;
+export function useMigrationSet(setId: string): MigrationSet | null {
+  return useMigrations((state) => state.sets.find((candidate) => candidate.id === setId) ?? null);
 }

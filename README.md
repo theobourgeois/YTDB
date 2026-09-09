@@ -44,8 +44,13 @@ tool the project already uses. DROP statements are withheld until you ask for th
 
 ## Run a folder of migrations
 
-Open **Migrations** in a connection's sidebar (<kbd>⌘</kbd>+<kbd>⇧</kbd>+<kbd>M</kbd>) and drop in
-whatever you have. A flat folder of migrations is enough:
+**Migrations** in a connection's sidebar (<kbd>⌘</kbd>+<kbd>⇧</kbd>+<kbd>M</kbd>) lists the
+migrations you have. Each one is a folder of SQL and a page of its own: open it to apply it to an
+environment, see where every environment stands on it, or revert it. The list shows that standing at
+a glance — `dev 8/8`, `prod 0/8` — so a migration that has been through dev but not prod is obvious
+without opening anything.
+
+Drop in whatever you have to start one. A flat folder of migrations is enough:
 
 ```text
 migrations/
@@ -66,11 +71,10 @@ shop-migrations/
 in a flat folder. **Reverts are optional** — a migration without one applies like any other, and only
 Revert is unavailable for it.
 
-Files do not have to arrive together. **Import** folds whatever you drop into the set that is open:
-new versions are added, versions already there have their SQL refreshed, and a revert file finds the
-migration it belongs to. So you can start a set from one folder, add a stray file later, and attach a
-revert to a single migration from its `⋯` menu whenever you write one. **New empty set** in the set
-menu starts one from nothing.
+Files do not have to arrive together. Dropping files onto an open migration folds them in: new
+versions are added, versions already there have their SQL refreshed, and a revert file finds the
+version it belongs to. So you can start one from a folder, add a stray file later, and attach a
+revert from a row's `⋯` menu whenever you write one. **New migration** starts an empty one.
 
 Nothing is appended into one script. Each migration runs on its own, in a transaction, together with
 the row that records it — so a migration that fails halfway leaves the database and the ledger exactly

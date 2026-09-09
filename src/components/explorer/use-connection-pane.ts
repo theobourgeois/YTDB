@@ -9,7 +9,7 @@ import { useExplorerContext } from "./explorer-provider";
  * Toggles between a connection-level pane — the SQL editor, schema compare — and
  * the table the user came from, so the same shortcut opens and closes it.
  */
-export function useConnectionPane(segment: string) {
+export function useConnectionPane(segment: string, { nested = false } = {}) {
   const router = useRouter();
   const pathname = usePathname();
   const { connection, tables } = useExplorerContext();
@@ -17,7 +17,8 @@ export function useConnectionPane(segment: string) {
 
   const base = `/${encodeURIComponent(connection.id)}`;
   const href = `${base}/${segment}`;
-  const open = pathname === href;
+  // A pane with pages of its own counts as open on any of them.
+  const open = nested ? pathname === href || pathname.startsWith(`${href}/`) : pathname === href;
 
   function backHref(): string {
     for (const key of browse.recentTables) {

@@ -1,5 +1,5 @@
-import { MigrationsView } from "@/components/migrations/migrations-view";
+import { MigrationsIndex } from "@/components/migrations/migrations-index";
 
 export default function MigrationsPage() {
-  return <MigrationsView />;
+  return <MigrationsIndex />;
 }

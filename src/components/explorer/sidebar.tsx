@@ -263,7 +263,7 @@ export function Sidebar({ width: persistedWidth, onWidthChange, onCollapse }: Pr
           </NavLink>
           <NavLink
             href={migrationsHref}
-            active={pathname === migrationsHref}
+            active={pathname === migrationsHref || pathname.startsWith(`${migrationsHref}/`)}
             shortcut={SHORTCUTS.migrations}
           >
             <Layers2Icon data-icon="inline-start" />
