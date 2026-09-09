@@ -18,6 +18,7 @@ export const POST = jsonHandler<Body>("migrate", async (body) => {
   return runMigration(url, {
     recordOnly,
     ledgerSchema: input.ledgerSchema,
+    revertSql: typeof input.revertSql === "string" ? input.revertSql : undefined,
     direction: input.direction,
     version: requireString(input.version, "migration.version"),
     name: typeof input.name === "string" ? input.name : "",

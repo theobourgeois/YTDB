@@ -21,6 +21,8 @@ type LedgerRow = {
   applied_at: Date | string;
   duration_ms: number | null;
   applied_by: string | null;
+  apply_sql?: string | null;
+  revert_sql?: string | null;
 };
 
 function createLedgerSql(schema: string): string {
@@ -32,28 +34,46 @@ CREATE TABLE IF NOT EXISTS ${ledgerTable(schema)} (
   set_name    text,
   applied_at  timestamptz NOT NULL DEFAULT now(),
   duration_ms integer,
-  applied_by  text
+  applied_by  text,
+  apply_sql   text,
+  revert_sql  text
 )`;
 }
 
-function selectLedgerSql(schema: string): string {
+/** Brings a ledger written by an earlier version up to the current shape. */
+function alterLedgerSql(schema: string): string[] {
+  return [
+    `ALTER TABLE ${ledgerTable(schema)} ADD COLUMN IF NOT EXISTS apply_sql text`,
+    `ALTER TABLE ${ledgerTable(schema)} ADD COLUMN IF NOT EXISTS revert_sql text`,
+  ];
+}
+
+/**
+ * The SQL columns are left out unless asked for: the list polls every environment
+ * to draw a status column, and does not need a migration's whole body to do it.
+ */
+function selectLedgerSql(schema: string, withSql: boolean): string {
+  const sql = withSql ? ", apply_sql, revert_sql" : "";
   return `
-SELECT version, name, checksum, set_name, applied_at, duration_ms, applied_by
+SELECT version, name, checksum, set_name, applied_at, duration_ms, applied_by${sql}
 FROM ${ledgerTable(schema)}
 ORDER BY version`;
 }
 
 function recordApplySql(schema: string): string {
   return `
-INSERT INTO ${ledgerTable(schema)} (version, name, checksum, set_name, duration_ms, applied_by)
-VALUES ($1, $2, $3, $4, $5, current_user)
+INSERT INTO ${ledgerTable(schema)}
+  (version, name, checksum, set_name, duration_ms, applied_by, apply_sql, revert_sql)
+VALUES ($1, $2, $3, $4, $5, current_user, $6, $7)
 ON CONFLICT (version) DO UPDATE SET
   name = EXCLUDED.name,
   checksum = EXCLUDED.checksum,
   set_name = EXCLUDED.set_name,
   applied_at = now(),
   duration_ms = EXCLUDED.duration_ms,
-  applied_by = current_user
+  applied_by = current_user,
+  apply_sql = EXCLUDED.apply_sql,
+  revert_sql = EXCLUDED.revert_sql
 RETURNING applied_at`;
 }
 
@@ -70,6 +90,8 @@ function toEntry(row: LedgerRow): LedgerEntry {
     appliedAt: row.applied_at instanceof Date ? row.applied_at.toISOString() : String(row.applied_at),
     durationMs: row.duration_ms,
     appliedBy: row.applied_by,
+    ...(row.apply_sql ? { applySql: row.apply_sql } : {}),
+    ...(row.revert_sql ? { revertSql: row.revert_sql } : {}),
   };
 }
 
@@ -148,12 +170,19 @@ async function resolveLedgerSchema(
 export async function readLedger(
   connectionString: string,
   configured: string = DEFAULT_LEDGER_SCHEMA,
+  withSql = false,
 ): Promise<LedgerResult> {
   const pool = getPool(connectionString);
   const { schema, exists } = await resolveLedgerSchema(pool, configured);
   if (!exists) return { initialized: false, schema, entries: [] };
 
-  const result = await pool.query<LedgerRow>(selectLedgerSql(schema));
+  // A ledger written before the SQL columns existed still has to read.
+  const result = await pool
+    .query<LedgerRow>(selectLedgerSql(schema, withSql))
+    .catch(async (error: unknown) => {
+      if (!withSql) throw error;
+      return pool.query<LedgerRow>(selectLedgerSql(schema, false));
+    });
   return { initialized: true, schema, entries: result.rows.map(toEntry) };
 }
 
@@ -191,6 +220,7 @@ async function ensureLedger(client: PoolClient, schema: string): Promise<void> {
   try {
     await client.query(`CREATE SCHEMA IF NOT EXISTS ${quoteIdent(schema)}`);
     await client.query(createLedgerSql(schema));
+    for (const statement of alterLedgerSql(schema)) await client.query(statement);
   } catch (error) {
     explainLedgerFailure(error, schema);
   }
@@ -266,6 +296,8 @@ async function record(
     request.checksum,
     request.setName,
     durationMs,
+    request.sql || null,
+    request.revertSql ?? null,
   ]);
   const appliedAt = result.rows[0]?.applied_at;
   if (!appliedAt) return null;

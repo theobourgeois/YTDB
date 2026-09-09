@@ -262,3 +262,38 @@ export function formatBytes(bytes: number): string {
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
+
+/**
+ * Rebuilds a migration from what the databases stored, for a browser that never
+ * had the folder. Only versions whose SQL was kept can come back; the rest are
+ * named so it is clear what is still missing.
+ */
+export function setFromLedger(
+  name: string,
+  entries: { version: string; name: string; applySql?: string; revertSql?: string }[],
+): { set: MigrationSet; missing: string[] } {
+  const missing: string[] = [];
+  const steps: MigrationStep[] = [];
+
+  for (const entry of [...entries].sort((a, b) => compareVersions(a.version, b.version))) {
+    if (!entry.applySql) {
+      missing.push(entry.version);
+      continue;
+    }
+    steps.push({
+      version: entry.version,
+      name: entry.name || entry.version,
+      applyPath: `${entry.version} (from the ledger)`,
+      applySql: entry.applySql,
+      checksum: checksum(entry.applySql),
+      revertPath: entry.revertSql ? `${entry.version} revert (from the ledger)` : undefined,
+      revertSql: entry.revertSql,
+      transaction: planTransaction(entry.applySql).mode,
+    });
+  }
+
+  return {
+    set: { id: randomId(), name: cleanSetName(name), importedAt: Date.now(), steps, skipped: [] },
+    missing,
+  };
+}

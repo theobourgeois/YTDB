@@ -84,8 +84,12 @@ export const api = {
   schema: (connectionUrl: string, signal?: AbortSignal) =>
     post<SchemaSnapshot>("/api/schema", { connectionUrl }, signal),
 
-  ledger: (connectionUrl: string, ledgerSchema: string, signal?: AbortSignal) =>
-    post<LedgerResult>("/api/ledger", { connectionUrl, ledgerSchema }, signal),
+  ledger: (
+    connectionUrl: string,
+    ledgerSchema: string,
+    signal?: AbortSignal,
+    withSql = false,
+  ) => post<LedgerResult>("/api/ledger", { connectionUrl, ledgerSchema, withSql }, signal),
 
   migrate: (connectionUrl: string, migration: MigrationRequest, signal?: AbortSignal) =>
     post<MigrationResult>("/api/migrate", { connectionUrl, migration }, signal),

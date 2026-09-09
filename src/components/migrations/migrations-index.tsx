@@ -18,6 +18,7 @@ import { useMigrations } from "@/lib/store/migrations";
 import type { Connection } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { MigrationHistory } from "./migration-history";
+import { setFromLedger } from "@/lib/migrations/parse";
 import { MigrationDropZone, type FolderDrop } from "./migration-import";
 import { MigrationsFooter, type MigrationsPane } from "./migrations-footer";
 
@@ -33,11 +34,14 @@ export function MigrationsIndex() {
   const { connection } = useExplorerContext();
   const sets = useMigrations((state) => state.sets);
   const createSet = useMigrations((state) => state.createSet);
+  const adoptSet = useMigrations((state) => state.adoptSet);
   const addFiles = useMigrations((state) => state.addFiles);
   const ledgerSchema = useMigrations((state) => state.ledgerSchema);
   const runRecords = useMigrations((state) => state.history);
   const partners = useSharedLayoutPartners(connection.id);
   const [pane, setPane] = useState<MigrationsPane>("migrations");
+  const [restoring, setRestoring] = useState<string | null>(null);
+  const [restoreError, setRestoreError] = useState<string | null>(null);
 
   const environmentConnections = useMemo(() => [connection, ...partners], [connection, partners]);
   const ledgerKey = environmentConnections.map((item) => item.url).join("|");
@@ -87,6 +91,50 @@ export function MigrationsIndex() {
     },
     [createSet, addFiles, router, base],
   );
+
+  /**
+   * Pulls a migration back out of the databases that ran it. The SQL is stored
+   * with each ledger row, so a browser that never had the folder can still open
+   * it, apply it elsewhere, and revert it.
+   */
+  async function restore(name: string) {
+    setRestoring(name);
+    setRestoreError(null);
+    try {
+      const reads = await Promise.all(
+        environmentConnections.map((item) =>
+          api.ledger(item.url, ledgerSchema, undefined, true).catch(() => null),
+        ),
+      );
+      const byVersion = new Map<string, { version: string; name: string; applySql?: string; revertSql?: string }>();
+      for (const read of reads) {
+        for (const entry of read?.entries ?? []) {
+          if (entry.setName?.trim() !== name) continue;
+          const existing = byVersion.get(entry.version);
+          // Any environment that kept the SQL will do; prefer one that has it.
+          if (!existing?.applySql) byVersion.set(entry.version, entry);
+        }
+      }
+      const { set: rebuilt, missing } = setFromLedger(name, [...byVersion.values()]);
+      if (rebuilt.steps.length === 0) {
+        setRestoreError(
+          `${name} was applied before YTDB kept the SQL, so it cannot be rebuilt. Drop its folder instead.`,
+        );
+        return;
+      }
+      adoptSet(rebuilt);
+      if (missing.length > 0) {
+        setRestoreError(
+          `Rebuilt ${rebuilt.steps.length} of ${rebuilt.steps.length + missing.length}. No SQL was stored for ${missing.join(", ")}.`,
+        );
+      }
+      router.push(`${base}/${encodeURIComponent(rebuilt.id)}`);
+    } catch (caught) {
+      setRestoreError(caught instanceof Error ? caught.message : String(caught));
+    } finally {
+      setRestoring(null);
+    }
+  }
 
   function newEmpty() {
     const name = window.prompt("Name this migration", "");
@@ -162,12 +210,20 @@ export function MigrationsIndex() {
           {discovered.length > 0 && (
             <div className="border-b bg-muted/20">
               <p className="px-4 py-2 text-xs text-muted-foreground">
-                Already run against these databases, but not imported into this browser. Drop the
-                folder to manage it here.
+                Run against these databases but not imported here. The SQL was stored with each
+                one, so it can be opened without the folder.
               </p>
               {discovered.map((item) => (
-                <DiscoveredRow key={item.name} migration={item} />
+                <DiscoveredRow
+                  key={item.name}
+                  migration={item}
+                  busy={restoring === item.name}
+                  onOpen={() => void restore(item.name)}
+                />
               ))}
+              {restoreError && (
+                <p className="px-4 pt-1 pb-2 text-xs text-destructive">{restoreError}</p>
+              )}
             </div>
           )}
           <div className="p-4">
@@ -245,7 +301,15 @@ function MigrationCard({
 }
 
 /** A migration the ledgers know about but this browser has no files for. */
-function DiscoveredRow({ migration }: { migration: DiscoveredMigration }) {
+function DiscoveredRow({
+  migration,
+  busy,
+  onOpen,
+}: {
+  migration: DiscoveredMigration;
+  busy: boolean;
+  onOpen: () => void;
+}) {
   return (
     <div className="flex items-center gap-3 border-t px-4 py-2.5 first:border-t-0">
       <div className="min-w-0 flex-1">
@@ -253,8 +317,7 @@ function DiscoveredRow({ migration }: { migration: DiscoveredMigration }) {
         <p className="truncate text-xs text-muted-foreground">
           {migration.total} migration{migration.total === 1 ? "" : "s"}
           {migration.versions.length > 0 &&
-            ` · ${migration.versions[0]}–${migration.versions.at(-1)}`}{" "}
-          · files not here
+            ` · ${migration.versions[0]}–${migration.versions.at(-1)}`}
         </p>
       </div>
       <div className="flex shrink-0 items-center gap-1.5">
@@ -270,7 +333,9 @@ function DiscoveredRow({ migration }: { migration: DiscoveredMigration }) {
           </span>
         ))}
       </div>
-      <span className="w-4 shrink-0" />
+      <Button size="xs" variant="outline" disabled={busy} onClick={onOpen}>
+        {busy ? "Opening…" : "Open"}
+      </Button>
     </div>
   );
 }

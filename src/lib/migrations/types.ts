@@ -69,6 +69,10 @@ export type LedgerEntry = {
   appliedAt: string;
   durationMs: number | null;
   appliedBy: string | null;
+  /** The SQL that ran, kept so the migration can be rebuilt without the files. */
+  applySql?: string;
+  /** What would undo it, as it stood when it was applied. */
+  revertSql?: string;
 };
 
 export type LedgerResult = {
@@ -86,6 +90,11 @@ export type MigrationRequest = {
   checksum: string;
   setName: string;
   sql: string;
+  /**
+   * Stored alongside an apply so the migration can be undone from a machine that
+   * never had the files.
+   */
+  revertSql?: string;
   /** Schema the ledger lives in; an existing ledger elsewhere wins over it. */
   ledgerSchema: string;
   /**

@@ -47,6 +47,8 @@ type MigrationsState = {
   createSet: (name: string) => string;
   /** Folds files into a set, adding what is new and updating what is not. */
   addFiles: (setId: string, files: ImportedFile[]) => MergeReport;
+  /** Takes a set built elsewhere — rebuilt from a ledger, say — as it stands. */
+  adoptSet: (set: MigrationSet) => string;
   renameSet: (id: string, name: string) => void;
   removeSet: (id: string) => void;
   /** Drops one migration from a set, without touching any database. */
@@ -91,6 +93,15 @@ export const useMigrations = create<MigrationsState>()(
           skipped: report.skipped.length,
         });
         return report;
+      },
+      adoptSet: (incoming) => {
+        set((state) => ({ sets: [...state.sets, incoming] }));
+        logUiAction("migrations.import", {
+          name: incoming.name,
+          migrations: incoming.steps.length,
+          source: "ledger",
+        });
+        return incoming.id;
       },
       renameSet: (id, name) => {
         const clean = name.trim().replace(/\s+/g, " ").slice(0, 80);

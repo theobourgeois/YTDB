@@ -229,6 +229,8 @@ export function MigrationDetail({ setId }: { setId: string }) {
           checksum: step.checksum,
           setName: activeSet.name,
           sql: sql ?? "",
+          // Stored with the apply so the migration can be undone from elsewhere.
+          revertSql: plan.direction === "apply" ? step.revertSql : undefined,
           ledgerSchema,
           recordOnly: plan.recordOnly,
         });
