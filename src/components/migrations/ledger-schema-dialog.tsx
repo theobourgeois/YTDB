@@ -42,11 +42,9 @@ export function LedgerSchemaDialog({ schema, found, onOpenChange, onSave }: Prop
     <Dialog open onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Where the ledger lives</DialogTitle>
+          <DialogTitle>Ledger schema</DialogTitle>
           <DialogDescription>
-            Each database records what it has run in its own table. This is the schema that
-            table goes in, for every connection — dev and prod have to look in the same place
-            for their columns to mean anything.
+            Where each database keeps its record of what has run. Created on the first apply.
           </DialogDescription>
         </DialogHeader>
 
@@ -71,15 +69,10 @@ export function LedgerSchemaDialog({ schema, found, onOpenChange, onSave }: Prop
           )}
         </div>
 
-        <p className="text-xs text-muted-foreground">
-          The schema is created on the first apply, so the connection needs permission to
-          create it. Nothing is created just by reading a ledger.
-        </p>
-
         {elsewhere.length > 0 && (
           <p className="rounded-md border border-amber-600/25 bg-amber-500/8 px-3 py-2 text-xs">
-            {elsewhere.map((item) => `${item.name} already keeps its ledger in ${item.schema}`).join("; ")}.
-            Those keep being used where they are, so nothing already applied is forgotten.
+            {elsewhere.map((item) => `${item.name} keeps its ledger in ${item.schema}`).join("; ")}.
+            That one stays where it is.
           </p>
         )}
 

@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { FolderPlusIcon, SearchIcon } from "lucide-react";
+import { FolderPlusIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { SearchField } from "@/components/ui/search-field";
 import { useQueries, type SavedQuery } from "@/lib/store/queries";
 import { cn } from "@/lib/utils";
 import { QueryHistory } from "./query-history";
@@ -92,16 +92,12 @@ export function QuerySidebar({
         )}
       </div>
       <div className="border-b p-2">
-        <div className="relative">
-          <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder={tab === "saved" ? "Search saved queries" : "Search history"}
-            aria-label={tab === "saved" ? "Search saved queries" : "Search query history"}
-            className="h-8 bg-background/60 pl-8 text-xs"
-          />
-        </div>
+        <SearchField
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder={tab === "saved" ? "Search saved queries" : "Search history"}
+          aria-label={tab === "saved" ? "Search saved queries" : "Search query history"}
+        />
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">
         {tab === "saved" ? (

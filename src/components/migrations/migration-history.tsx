@@ -106,36 +106,29 @@ export function MigrationHistory({ events, connections, loading }: Props) {
   if (events.length === 0) {
     return (
       <p className="px-4 py-6 text-sm text-muted-foreground">
-        {loading
-          ? "Reading ledgers…"
-          : "Nothing has been applied to these databases yet. Every run shows up here, along with what each database's own ledger already records."}
+        {loading ? "Reading ledgers…" : "Nothing has run yet."}
       </p>
     );
   }
 
   return (
     <div>
-      <div className="flex items-center justify-between gap-2 px-4 py-1.5">
-        <span className="min-w-0 truncate text-xs text-muted-foreground">
-          {events.length} event{events.length === 1 ? "" : "s"}, newest first · from each
-          database&rsquo;s ledger and this browser&rsquo;s own log
-        </span>
-        {local > 0 && (
+      {events.map((event) => (
+        <Row key={event.id} event={event} connection={byId.get(event.connectionId)} />
+      ))}
+      {local > 0 && (
+        <div className="flex justify-end px-3 py-2">
           <Button
             size="xs"
             variant="ghost"
+            className="text-muted-foreground"
             title="Clears this browser's log. The databases' ledgers are untouched."
             onClick={() => clearHistory()}
           >
             Clear local log
           </Button>
-        )}
-      </div>
-      <div className="border-t">
-        {events.map((event) => (
-          <Row key={event.id} event={event} connection={byId.get(event.connectionId)} />
-        ))}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

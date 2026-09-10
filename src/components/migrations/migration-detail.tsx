@@ -55,6 +55,7 @@ import { LedgerSchemaDialog } from "./ledger-schema-dialog";
 import { MigrationHistory } from "./migration-history";
 import { MigrationsFooter, type MigrationsPane } from "./migrations-footer";
 import { MigrationDropZone, useMigrationImport, type FolderDrop } from "./migration-import";
+import { MigrationNameDialog } from "./migration-name-dialog";
 import { MigrationRow, StatusMark } from "./migration-row";
 import { MigrationRunDialog, type RunProgress } from "./run-dialog";
 
@@ -90,6 +91,7 @@ export function MigrationDetail({ setId }: { setId: string }) {
   const [lastImport, setLastImport] = useState<MergeReport | null>(null);
   const [revertFor, setRevertFor] = useState<string | null>(null);
   const [editingLedger, setEditingLedger] = useState(false);
+  const [renaming, setRenaming] = useState(false);
   const revertInputRef = useRef<HTMLInputElement>(null);
   const stopRef = useRef(false);
 
@@ -288,11 +290,8 @@ export function MigrationDetail({ setId }: { setId: string }) {
     router.push(`/${encodeURIComponent(connection.id)}/diff`);
   }
 
-  function renameActiveSet() {
-    if (!activeSet) return;
-    const name = window.prompt("Rename this migration", activeSet.name);
-    if (name === null) return;
-    renameSet(activeSet.id, name);
+  function renameActiveSet(name: string) {
+    if (activeSet) renameSet(activeSet.id, name);
   }
 
   function forgetActiveSet() {
@@ -356,14 +355,14 @@ export function MigrationDetail({ setId }: { setId: string }) {
         />
         <div className="ml-auto flex items-center gap-2">
           <Button
-            size="sm"
+            size="icon-sm"
             variant="ghost"
             disabled={ledgers.loading}
+            aria-label="Refresh"
             title="Re-read every environment's ledger"
             onClick={() => ledgers.reload()}
           >
-            <RefreshCwIcon data-icon="inline-start" className={cn(ledgers.loading && "animate-spin")} />
-            Refresh
+            <RefreshCwIcon className={cn(ledgers.loading && "animate-spin")} />
           </Button>
           <Button size="sm" variant="ghost" onClick={() => setDragging(true)}>
             <FolderUpIcon data-icon="inline-start" />
@@ -393,13 +392,16 @@ export function MigrationDetail({ setId }: { setId: string }) {
                 Revert everything on {connection.name}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={renameActiveSet}>
+              <DropdownMenuItem onClick={() => setRenaming(true)}>
                 <PencilIcon />
-                Rename this migration
+                Rename
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setEditingLedger(true)}>
                 <TableIcon />
-                Ledger table: {ledgerSchema}.{LEDGER_TABLE}
+                Ledger table
+                <span className="ml-auto pl-3 font-mono text-[11px] text-muted-foreground">
+                  {ledgerSchema}.{LEDGER_TABLE}
+                </span>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem variant="destructive" onClick={forgetActiveSet}>
@@ -414,21 +416,11 @@ export function MigrationDetail({ setId }: { setId: string }) {
           >
             <PlayIcon data-icon="inline-start" />
             {applyAll.steps.length === 0
-              ? "Nothing pending"
+              ? "Up to date"
               : `Apply ${applyAll.steps.length} to ${connection.name}`}
           </Button>
         </div>
       </Header>
-
-      {partners.length === 0 && (
-        <p className="border-b bg-muted/30 px-4 py-1.5 text-xs text-muted-foreground">
-          Only {connection.name} is tracked here.{" "}
-          <Link href="/" className="text-foreground underline underline-offset-4">
-            Link it to the same database in another environment
-          </Link>{" "}
-          to track both side by side.
-        </p>
-      )}
 
       {lastImport && (
         <ImportNote report={lastImport} onDismiss={() => setLastImport(null)} />
@@ -464,11 +456,7 @@ export function MigrationDetail({ setId }: { setId: string }) {
           <ScrollArea className={cn("min-h-0 flex-1", ledgers.loading && "opacity-70")}>
             {(activeSet?.steps.length ?? 0) === 0 && (
               <div className="p-6">
-                <MigrationDropZone
-                  onFiles={onFiles}
-                  compact
-                  hint="Drop .sql files here to fill this set. They can arrive a folder at a time or one at a time."
-                />
+                <MigrationDropZone onFiles={onFiles} compact />
               </div>
             )}
             {(activeSet?.steps ?? []).map((step) => (
@@ -533,7 +521,6 @@ export function MigrationDetail({ setId }: { setId: string }) {
         historyCount={historyEvents.length}
         migrationsLabel="Files"
         caption={statusLine({
-            name: activeSet?.name ?? "",
             connectionName: connection.name,
             summary,
             initialized: currentLedger?.initialized ?? null,
@@ -552,6 +539,15 @@ export function MigrationDetail({ setId }: { setId: string }) {
           void takeRevertFile(event.target.files);
           event.target.value = "";
         }}
+      />
+
+      <MigrationNameDialog
+        open={renaming}
+        title="Rename migration"
+        initial={activeSet.name}
+        submitLabel="Rename"
+        onOpenChange={setRenaming}
+        onSubmit={renameActiveSet}
       />
 
       {editingLedger && (
@@ -655,7 +651,7 @@ function ForeignList({
     <div className="border-t bg-muted/20">
       <p className="flex items-center gap-2 px-4 py-2 text-xs text-muted-foreground">
         <TriangleAlertIcon className="size-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
-        Applied on {connectionName} but not in this folder — the folder may be out of date.
+        Applied on {connectionName}, not in this folder
       </p>
       {entries.map((entry) => (
         <div key={entry.version} className="flex items-center gap-2 px-4 py-1.5 text-xs opacity-70">
@@ -675,13 +671,10 @@ function ForeignList({
 function listCaption(summary: ReturnType<typeof summarize>, loading: boolean): string {
   if (loading && summary.total === 0) return "Reading…";
   const migrations = `${summary.total} migration${summary.total === 1 ? "" : "s"}`;
-  return summary.foreign > 0
-    ? `${migrations} · ${summary.foreign} more applied but missing from this folder`
-    : migrations;
+  return summary.foreign > 0 ? `${migrations} · ${summary.foreign} not in this folder` : migrations;
 }
 
 function statusLine({
-  name,
   connectionName,
   summary,
   initialized,
@@ -689,7 +682,6 @@ function statusLine({
   foundIn,
   configuredSchema,
 }: {
-  name: string;
   connectionName: string;
   summary: ReturnType<typeof summarize>;
   initialized: boolean | null;
@@ -699,17 +691,17 @@ function statusLine({
   configuredSchema: string;
 }): string {
   if (loading && initialized === null) return "Reading ledgers…";
-  if (initialized === false) {
-    return `${connectionName} has never had a migration run by YTDB, so all ${summary.total} are pending`;
-  }
   const parts: string[] = [];
-  if (summary.pending === 0) parts.push(`${connectionName} is up to date with ${name}`);
-  else parts.push(`${summary.pending} of ${summary.total} still to apply to ${connectionName}`);
+  if (initialized === false || summary.pending > 0) {
+    parts.push(`${summary.pending} of ${summary.total} pending on ${connectionName}`);
+  } else {
+    parts.push(`${connectionName} is up to date`);
+  }
   if (summary.drifted > 0) {
-    parts.push(`${summary.drifted} file${summary.drifted === 1 ? "" : "s"} changed since it ran`);
+    parts.push(`${summary.drifted} changed since applied`);
   }
   if (foundIn && foundIn !== configuredSchema) {
-    parts.push(`ledger kept in ${foundIn}, not ${configuredSchema}`);
+    parts.push(`ledger in ${foundIn}`);
   }
   return parts.join(" · ");
 }

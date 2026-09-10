@@ -14,12 +14,11 @@ import {
   GitCompareIcon,
   Layers2Icon,
   PanelLeftCloseIcon,
-  SearchIcon,
   SquareTerminalIcon,
 } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { SearchField } from "@/components/ui/search-field";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useConnections } from "@/lib/store/connections";
 import { useBrowseState } from "@/lib/store/explorer";
@@ -241,8 +240,8 @@ export function Sidebar({ width: persistedWidth, onWidthChange, onCollapse }: Pr
       style={{ width }}
       className="relative flex h-full shrink-0 flex-col border-r bg-sidebar"
     >
-      <div className="flex flex-col gap-2 border-b border-sidebar-border/60 p-2 pb-2.5">
-        <div className="flex items-center gap-1">
+      <div className="flex flex-col gap-0.5 border-b border-sidebar-border/60 p-2">
+        <div className="mb-1 flex items-center gap-1">
           <div className="min-w-0 flex-1">
             <ConnectionSwitcher current={connection} />
           </div>
@@ -256,47 +255,49 @@ export function Sidebar({ width: persistedWidth, onWidthChange, onCollapse }: Pr
             <PanelLeftCloseIcon />
           </Button>
         </div>
-        <div className="flex flex-col gap-0.5">
-          <NavLink href={queryHref} active={pathname === queryHref} shortcut={SHORTCUTS.sqlEditor}>
-            <SquareTerminalIcon data-icon="inline-start" />
-            SQL query
-          </NavLink>
+        <NavLink href={queryHref} active={pathname === queryHref} shortcut={SHORTCUTS.sqlEditor}>
+          <SquareTerminalIcon data-icon="inline-start" />
+          SQL query
+        </NavLink>
+        <NavLink
+          href={migrationsHref}
+          active={pathname === migrationsHref || pathname.startsWith(`${migrationsHref}/`)}
+          shortcut={SHORTCUTS.migrations}
+        >
+          <Layers2Icon data-icon="inline-start" />
+          Migrations
+        </NavLink>
+        {comparable && (
           <NavLink
-            href={migrationsHref}
-            active={pathname === migrationsHref || pathname.startsWith(`${migrationsHref}/`)}
-            shortcut={SHORTCUTS.migrations}
+            href={diffHref}
+            active={pathname === diffHref}
+            shortcut={SHORTCUTS.compareSchema}
           >
-            <Layers2Icon data-icon="inline-start" />
-            Migrations
+            <GitCompareIcon data-icon="inline-start" />
+            Compare schema
           </NavLink>
-          {comparable && (
-            <NavLink
-              href={diffHref}
-              active={pathname === diffHref}
-              shortcut={SHORTCUTS.compareSchema}
-            >
-              <GitCompareIcon data-icon="inline-start" />
-              Compare schema
-            </NavLink>
-          )}
-        </div>
-        <div className="relative">
-          <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={browse.search}
-            onChange={(event) => updateSearch(event.target.value)}
-            placeholder="Search tables"
-            aria-label="Search tables"
-            className="h-9 bg-background/60 pr-9 pl-8"
-          />
-          <kbd className="pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 font-mono text-[10px] text-muted-foreground/55">
-            {SHORTCUTS.tableSearch}
-          </kbd>
-        </div>
-        <SchemaMultiSelect
-          schemas={schemas}
-          selected={selectedSchemas}
-          onChange={updateSelectedSchemas}
+        )}
+        <SearchField
+          value={browse.search}
+          onChange={(event) => updateSearch(event.target.value)}
+          placeholder="Search tables"
+          aria-label="Search tables"
+          className="mt-1"
+          trailing={
+            <>
+              {!browse.search && (
+                <kbd className="font-mono text-[10px] text-muted-foreground/55">
+                  {SHORTCUTS.tableSearch}
+                </kbd>
+              )}
+              <SchemaMultiSelect
+                compact
+                schemas={schemas}
+                selected={selectedSchemas}
+                onChange={updateSelectedSchemas}
+              />
+            </>
+          }
         />
       </div>
 

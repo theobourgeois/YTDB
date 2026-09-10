@@ -128,7 +128,7 @@ function statusLabel({
 }): string {
   switch (pane) {
     case "definition":
-      return "SQL definition · read only";
+      return "Definition";
     case "data": {
       const range = `${format.format(start)}–${format.format(end)}`;
       const total =

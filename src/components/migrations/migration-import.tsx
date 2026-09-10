@@ -50,13 +50,12 @@ export function useMigrationImport(onFiles: (drop: FolderDrop) => void) {
 
 type Props = {
   onFiles: (drop: FolderDrop) => void;
-  /** Overrides the default explanation, which assumes a first import. */
-  hint?: string;
   className?: string;
+  /** A single line with the buttons beside it, for sitting under a list. */
   compact?: boolean;
 };
 
-export function MigrationDropZone({ onFiles, hint, className, compact = false }: Props) {
+export function MigrationDropZone({ onFiles, className, compact = false }: Props) {
   const { importFrom, busy, error } = useMigrationImport(onFiles);
   const [over, setOver] = useState(false);
   const folderRef = useRef<HTMLInputElement>(null);
@@ -81,34 +80,49 @@ export function MigrationDropZone({ onFiles, hint, className, compact = false }:
         void importFrom(event.dataTransfer);
       }}
       className={cn(
-        "flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed text-center transition-colors",
-        compact ? "gap-2 px-4 py-6" : "px-6 py-10",
+        "flex items-center justify-center rounded-lg border border-dashed text-center transition-colors",
+        compact ? "flex-wrap gap-x-3 gap-y-2 px-4 py-3" : "flex-col gap-4 px-6 py-10",
         over ? "border-primary bg-primary/5" : "border-border",
         className,
       )}
     >
       {busy ? (
-        <LoaderCircleIcon className="size-5 animate-spin text-muted-foreground" />
+        <LoaderCircleIcon className="size-4 shrink-0 animate-spin text-muted-foreground" />
       ) : (
-        <FolderUpIcon className="size-5 text-muted-foreground" />
+        <FolderUpIcon
+          className={cn("shrink-0 text-muted-foreground", compact ? "size-4" : "size-5")}
+        />
       )}
-      <div className="space-y-1">
-        <p className="text-sm font-medium">Drop migrations here</p>
-        <p className="max-w-md text-xs text-muted-foreground">
-          {hint ??
-            "A folder of .sql files, or one split into apply/ and revert/ (or up/ and down/). Revert files are optional, and you can add more files later."}
-        </p>
-      </div>
-      <div className="flex items-center gap-2">
-        <Button size="sm" variant="outline" disabled={busy} onClick={() => folderRef.current?.click()}>
+      {compact ? (
+        <span className="text-xs text-muted-foreground">Drop a folder of .sql files</span>
+      ) : (
+        <div className="space-y-1">
+          <p className="text-sm font-medium">Drop a migration folder</p>
+          <p className="text-xs text-muted-foreground">
+            .sql files, optionally split into apply/ and revert/
+          </p>
+        </div>
+      )}
+      <div className="flex items-center gap-1">
+        <Button
+          size={compact ? "xs" : "sm"}
+          variant={compact ? "ghost" : "outline"}
+          disabled={busy}
+          onClick={() => folderRef.current?.click()}
+        >
           <FolderOpenIcon data-icon="inline-start" />
           Choose folder
         </Button>
-        <Button size="sm" variant="ghost" disabled={busy} onClick={() => filesRef.current?.click()}>
+        <Button
+          size={compact ? "xs" : "sm"}
+          variant="ghost"
+          disabled={busy}
+          onClick={() => filesRef.current?.click()}
+        >
           Choose files
         </Button>
       </div>
-      {error && <p className="max-w-sm text-xs text-destructive">{error}</p>}
+      {error && <p className="w-full text-xs text-destructive">{error}</p>}
 
       <input
         ref={folderRef}

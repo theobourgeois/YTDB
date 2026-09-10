@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -97,11 +96,8 @@ function SaveQueryForm({ connectionId, sql, onOpenChange, onSaved }: Props) {
 
   return (
     <form onSubmit={submit} className="flex flex-col gap-4">
-      <DialogHeader className="gap-1.5 pr-8">
+      <DialogHeader className="pr-8">
         <DialogTitle>Save query</DialogTitle>
-        <DialogDescription className="text-xs">
-          Keep this query in the sidebar and organize it into a folder.
-        </DialogDescription>
       </DialogHeader>
 
       <div className="flex flex-col gap-3">

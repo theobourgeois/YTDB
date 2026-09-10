@@ -158,7 +158,6 @@ export function QueryView() {
         <header className="flex h-11 shrink-0 items-center gap-2 border-b px-3">
           <SquareTerminalIcon className="size-4 shrink-0 text-muted-foreground" />
           <span className="font-medium">Query</span>
-          <span className="truncate text-xs text-muted-foreground">{connection.name}</span>
           {activeSaved && (
             <span
               className="flex min-w-0 items-center gap-1.5 rounded-md bg-muted/70 py-0.5 pr-2 pl-1.5 text-xs"
@@ -175,13 +174,11 @@ export function QueryView() {
               />
             </span>
           )}
-          <span className="ml-auto hidden text-[11px] text-muted-foreground lg:inline">
-            Run selection or script with <kbd className="font-mono">⌘/Ctrl ↵</kbd>
-          </span>
           <Button
             type="button"
             variant="ghost"
             size="sm"
+            className="ml-auto"
             disabled={!canSave}
             title={activeSaved ? "Save changes (⌘S)" : "Save query (⌘S)"}
             onClick={save}
@@ -202,7 +199,13 @@ export function QueryView() {
             <EraserIcon data-icon="inline-start" />
             Clear
           </Button>
-          <Button type="button" size="sm" disabled={loading || !draft.trim()} onClick={() => void run()}>
+          <Button
+            type="button"
+            size="sm"
+            disabled={loading || !draft.trim()}
+            title="Run the selection or the whole script (⌘↵)"
+            onClick={() => void run()}
+          >
             {loading ? (
               <LoaderCircleIcon data-icon="inline-start" className="animate-spin" />
             ) : (
@@ -234,14 +237,9 @@ export function QueryView() {
         </div>
 
         {error ? (
-          <div className="flex min-h-0 flex-1 flex-col">
-            <div className="flex h-9 shrink-0 items-center border-b px-3 text-xs font-medium">
-              Execution failed
-            </div>
-            <div className="min-h-0 flex-1 overflow-auto p-4">
-              <div className="rounded-md border border-destructive/25 bg-destructive/5 px-3 py-2 font-mono text-xs whitespace-pre-wrap text-destructive">
-                {error}
-              </div>
+          <div className="min-h-0 flex-1 overflow-auto p-4">
+            <div className="rounded-md border border-destructive/25 bg-destructive/5 px-3 py-2 font-mono text-xs whitespace-pre-wrap text-destructive">
+              {error}
             </div>
           </div>
         ) : (

@@ -6,26 +6,29 @@ import {
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuGroup,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
 
 type Props = {
   schemas: string[];
   selected: string[] | null;
   onChange: (schemas: string[] | null) => void;
+  /** A small icon trigger for sitting inside another row, instead of a full-width field. */
+  compact?: boolean;
 };
 
 function selectionLabel(schemas: string[], selected: string[] | null): string {
   if (selected === null || selected.length === schemas.length) return "All schemas";
   if (selected.length === 0) return "No schemas";
   if (selected.length === 1) return selected[0];
-  return `${selected.length} schemas`;
+  return `${selected.length} of ${schemas.length} schemas`;
 }
 
-export function SchemaMultiSelect({ schemas, selected, onChange }: Props) {
+export function SchemaMultiSelect({ schemas, selected, onChange, compact = false }: Props) {
   const allSelected = selected === null || selected.length === schemas.length;
+  const label = selectionLabel(schemas, selected);
 
   function toggleSchema(schema: string, checked: boolean) {
     const current = selected ?? schemas;
@@ -37,34 +40,37 @@ export function SchemaMultiSelect({ schemas, selected, onChange }: Props) {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="group flex h-9 w-full cursor-pointer items-center gap-2 rounded-lg border border-input bg-background/60 px-2.5 text-left text-sm outline-none transition-[border-color,background-color,box-shadow] hover:border-foreground/20 hover:bg-muted/50 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 data-open:border-foreground/20 data-open:bg-muted/60">
-        <Layers3Icon className="size-3.5 shrink-0 text-muted-foreground" />
-        <span className="min-w-0 flex-1 truncate font-medium">
-          {selectionLabel(schemas, selected)}
-        </span>
-        {!allSelected && (
-          <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] tabular-nums text-muted-foreground">
-            {selected.length}/{schemas.length}
-          </span>
-        )}
-        <ChevronDownIcon className="size-3.5 shrink-0 text-muted-foreground transition-transform group-data-open:rotate-180" />
-      </DropdownMenuTrigger>
+      {compact ? (
+        <DropdownMenuTrigger
+          aria-label={`Schemas: ${label}`}
+          title={label}
+          className={cn(
+            "flex h-6 shrink-0 cursor-pointer items-center gap-1 rounded-md px-1 text-[11px] tabular-nums outline-none transition-colors hover:bg-foreground/10 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60 data-open:bg-foreground/10 data-open:text-foreground",
+            allSelected ? "text-muted-foreground" : "text-foreground",
+          )}
+        >
+          <Layers3Icon className="size-3.5" />
+          {!allSelected && <span>{selected.length}</span>}
+        </DropdownMenuTrigger>
+      ) : (
+        <DropdownMenuTrigger className="group flex h-8 w-full cursor-pointer items-center gap-2 rounded-lg px-2 text-left text-[0.8rem] outline-none transition-colors hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring/60 data-open:bg-muted/60">
+          <Layers3Icon className="size-3.5 shrink-0 text-muted-foreground" />
+          <span className="min-w-0 flex-1 truncate">{label}</span>
+          <ChevronDownIcon className="size-3.5 shrink-0 text-muted-foreground transition-transform group-data-open:rotate-180" />
+        </DropdownMenuTrigger>
+      )}
 
       <DropdownMenuContent
-        align="start"
+        align={compact ? "end" : "start"}
         sideOffset={6}
-        className="max-h-80 w-(--anchor-width) min-w-52"
+        className={cn("max-h-80 min-w-52", !compact && "w-(--anchor-width)")}
       >
         <DropdownMenuGroup>
-          <DropdownMenuLabel className="flex items-center justify-between px-2 py-1.5">
-            <span>Visible schemas</span>
-            <span className="font-normal tabular-nums opacity-70">{schemas.length}</span>
-          </DropdownMenuLabel>
           <DropdownMenuCheckboxItem
             checked={allSelected}
             onCheckedChange={(checked) => onChange(checked ? null : [])}
           >
-            <span className="font-medium">Show all schemas</span>
+            All schemas
           </DropdownMenuCheckboxItem>
           <DropdownMenuSeparator />
           {schemas.map((schema) => (

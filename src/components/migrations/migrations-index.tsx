@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 import { MigrationHistory } from "./migration-history";
 import { setFromLedger } from "@/lib/migrations/parse";
 import { MigrationDropZone, type FolderDrop } from "./migration-import";
+import { MigrationNameDialog } from "./migration-name-dialog";
 import { MigrationsFooter, type MigrationsPane } from "./migrations-footer";
 
 type LedgerRead = { ledger: LedgerResult | null; error: string | null };
@@ -42,6 +43,7 @@ export function MigrationsIndex() {
   const [pane, setPane] = useState<MigrationsPane>("migrations");
   const [restoring, setRestoring] = useState<string | null>(null);
   const [restoreError, setRestoreError] = useState<string | null>(null);
+  const [naming, setNaming] = useState(false);
 
   const environmentConnections = useMemo(() => [connection, ...partners], [connection, partners]);
   const ledgerKey = environmentConnections.map((item) => item.url).join("|");
@@ -155,10 +157,8 @@ export function MigrationsIndex() {
     }
   }
 
-  function newEmpty() {
-    const name = window.prompt("Name this migration", "");
-    if (name === null) return;
-    const setId = createSet(name.trim() || "Untitled migration");
+  function newEmpty(name: string) {
+    const setId = createSet(name);
     router.push(`${base}/${encodeURIComponent(setId)}`);
   }
 
@@ -184,15 +184,10 @@ export function MigrationsIndex() {
       <header className="flex h-11 shrink-0 items-center gap-2 border-b px-3">
         <Layers2Icon className="size-4 shrink-0 text-muted-foreground" />
         <span className="font-medium">Migrations</span>
-        <span className="truncate text-xs text-muted-foreground">{connection.name}</span>
-        {sets.length > 0 && (
-          <div className="ml-auto flex items-center gap-2">
-            <Button size="sm" variant="ghost" onClick={newEmpty}>
-              <PlusIcon data-icon="inline-start" />
-              New migration
-            </Button>
-          </div>
-        )}
+        <Button size="sm" variant="ghost" className="ml-auto" onClick={() => setNaming(true)}>
+          <PlusIcon data-icon="inline-start" />
+          New migration
+        </Button>
       </header>
 
       {pane === "history" ? (
@@ -204,12 +199,8 @@ export function MigrationsIndex() {
           />
         </ScrollArea>
       ) : sets.length === 0 && discovered.length === 0 ? (
-        <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 p-6">
+        <div className="flex min-h-0 flex-1 flex-col items-center justify-center p-6">
           <MigrationDropZone onFiles={onFiles} className="w-full max-w-xl" />
-          <p className="max-w-xl text-center text-xs text-muted-foreground">
-            Each folder you drop becomes a migration of its own — open it to apply it to an
-            environment, see where it stands, or revert it.
-          </p>
         </div>
       ) : (
         <ScrollArea className="min-h-0 flex-1">
@@ -228,9 +219,11 @@ export function MigrationsIndex() {
           ))}
           {discovered.length > 0 && (
             <div className="border-b bg-muted/20">
-              <p className="px-4 py-2 text-xs text-muted-foreground">
-                Run against these databases but not imported here. The SQL was stored with each
-                one, so it can be opened without the folder.
+              <p
+                className="px-4 pt-2.5 pb-1 text-[11px] font-medium tracking-wide text-muted-foreground uppercase"
+                title="Applied to a database from elsewhere. The SQL is kept in its ledger, so it opens without the folder."
+              >
+                In the ledger only
               </p>
               {discovered.map((item) => (
                 <DiscoveredRow
@@ -246,16 +239,7 @@ export function MigrationsIndex() {
             </div>
           )}
           <div className="p-4">
-            <MigrationDropZone
-              onFiles={onFiles}
-              compact
-              hint={
-                sets.length === 0
-                  ? "Drop a folder of .sql files to start a migration."
-                  : "Drop another folder to start a new migration."
-              }
-              className="w-full"
-            />
+            <MigrationDropZone onFiles={onFiles} compact className="w-full" />
           </div>
         </ScrollArea>
       )}
@@ -266,6 +250,14 @@ export function MigrationsIndex() {
         onPaneChange={setPane}
         historyCount={historyEvents.length}
       />
+
+      <MigrationNameDialog
+        open={naming}
+        title="New migration"
+        submitLabel="Create"
+        onOpenChange={setNaming}
+        onSubmit={newEmpty}
+      />
     </div>
   );
 }
@@ -273,9 +265,7 @@ export function MigrationsIndex() {
 function caption(imported: number, discovered: number): string {
   if (imported === 0 && discovered === 0) return "No migrations yet";
   const parts = [`${imported} migration${imported === 1 ? "" : "s"}`];
-  if (discovered > 0) {
-    parts.push(`${discovered} more run against these databases but not imported here`);
-  }
+  if (discovered > 0) parts.push(`${discovered} in the ledger only`);
   return parts.join(" · ");
 }
 

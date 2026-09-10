@@ -10,7 +10,6 @@ import {
   CircleCheckIcon,
   Link2Icon,
   RefreshCwIcon,
-  SearchIcon,
   Trash2Icon,
 } from "lucide-react";
 import { ConnectionColorMark } from "@/components/connections/connection-color";
@@ -24,9 +23,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
 import { PaneToggle } from "@/components/ui/pane-toggle";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { SearchField } from "@/components/ui/search-field";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAsync } from "@/hooks/use-async";
 import { api } from "@/lib/api";
@@ -139,43 +138,43 @@ export function SchemaDiffView() {
         >
           <ArrowRightLeftIcon />
         </Button>
-        <div className="ml-auto flex items-center gap-2">
-          <span className="hidden text-xs text-muted-foreground sm:inline">
-            Changes to apply to {target.name}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={loading}
-            onClick={() => {
-              source.reload();
-              comparand.reload();
-            }}
-          >
-            <RefreshCwIcon data-icon="inline-start" className={cn(loading && "animate-spin")} />
-            Refresh
-          </Button>
-        </div>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          className="ml-auto"
+          disabled={loading}
+          aria-label="Refresh"
+          title="Re-read both schemas"
+          onClick={() => {
+            source.reload();
+            comparand.reload();
+          }}
+        >
+          <RefreshCwIcon className={cn(loading && "animate-spin")} />
+        </Button>
       </header>
 
       {pane === "changes" ? (
-        <div className="flex items-center gap-2 border-b px-4 py-2">
-          <div className="relative min-w-0 flex-1">
-            <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Filter differences"
-              aria-label="Filter differences"
-              className="h-9 pl-8"
-            />
-          </div>
-          <div className="w-48 shrink-0">
-            <SchemaMultiSelect schemas={allSchemas} selected={schemas} onChange={setSchemas} />
-          </div>
+        <div className="flex items-center gap-1 border-b px-2 py-1">
+          <SearchField
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Filter differences"
+            aria-label="Filter differences"
+            className="min-w-0 flex-1"
+            trailing={
+              <SchemaMultiSelect
+                compact
+                schemas={allSchemas}
+                selected={schemas}
+                onChange={setSchemas}
+              />
+            }
+          />
           <Button
             variant="ghost"
             size="sm"
+            className="text-muted-foreground"
             disabled={visible.length === 0}
             onClick={() =>
               setExpanded(allExpanded ? [] : visible.map((object) => object.id))
@@ -340,5 +339,5 @@ function migrationStatus(migration: Migration | null): string {
     migration.manual > 0
       ? ` · ${migration.manual} change${migration.manual === 1 ? "" : "s"} need editing by hand`
       : "";
-  return `${migration.statements} statement${migration.statements === 1 ? "" : "s"}${manual} · nothing runs from here`;
+  return `${migration.statements} statement${migration.statements === 1 ? "" : "s"}${manual}`;
 }
