@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { ChevronsUpDownIcon, Link2Icon } from "lucide-react";
 import {
   DropdownMenu,
@@ -13,10 +12,11 @@ import {
 import { useConnections } from "@/lib/store/connections";
 import type { Connection } from "@/lib/types";
 import { ConnectionColorMark } from "@/components/connections/connection-color";
+import { useGoToConnection } from "./use-switch-connection";
 
 export function ConnectionSwitcher({ current }: { current: Connection }) {
-  const router = useRouter();
   const connections = useConnections((s) => s.connections);
+  const goTo = useGoToConnection();
 
   return (
     <DropdownMenu>
@@ -34,7 +34,7 @@ export function ConnectionSwitcher({ current }: { current: Connection }) {
         {connections.map((connection) => (
           <DropdownMenuItem
             key={connection.id}
-            onClick={() => router.push(`/${connection.id}`)}
+            onClick={() => void goTo(connection.id)}
             className={connection.id === current.id ? "font-medium" : undefined}
           >
             <ConnectionColorMark connection={connection} />

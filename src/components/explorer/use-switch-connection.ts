@@ -1,32 +1,13 @@
 "use client";
 
-import { useParams, useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useCallback } from "react";
 import { api } from "@/lib/api";
 import { dismissPalettes } from "@/lib/palettes";
+import { equivalentHref, parseRoute } from "@/lib/routes";
 import { useConnections } from "@/lib/store/connections";
 import type { Connection, TableInfo, TableRef } from "@/lib/types";
 import { useExplorerContext } from "./explorer-provider";
-import { useSchemaDiff } from "./use-schema-diff";
-import { useSqlEditor } from "./use-sql-editor";
-
-function currentTable(params: { schema?: string; table?: string }): TableRef | null {
-  if (!params.schema || !params.table) return null;
-  return {
-    schema: decodeURIComponent(params.schema),
-    name: decodeURIComponent(params.table),
-  };
-}
-
-function connectionHref(connectionId: string, path = ""): string {
-  return `/${encodeURIComponent(connectionId)}${path}`;
-}
-
-function tableHref(connectionId: string, table: TableRef): string {
-  return connectionHref(
-    connectionId,
-    `/${encodeURIComponent(table.schema)}/${encodeURIComponent(table.name)}`,
-  );
-}
 
 export function nextConnection(
   connections: Connection[],
@@ -41,61 +22,51 @@ export function tableExistsOnConnection(tables: TableInfo[], table: TableRef): b
   return tables.some((item) => item.schema === table.schema && item.name === table.name);
 }
 
-export function switchConnectionHref(
-  nextId: string,
-  {
-    pane,
-    table,
-    tableExists,
-  }: {
-    /** The connection-level view the user is on, when they are on one. */
-    pane: "query" | "diff" | null;
-    table: TableRef | null;
-    tableExists: boolean;
-  },
-): string {
-  if (pane) return connectionHref(nextId, `/${pane}`);
-  if (table && tableExists) return tableHref(nextId, table);
-  return connectionHref(nextId);
-}
-
 /**
- * Cycles to the next saved connection, keeping the SQL editor or the current
- * table when that table also exists on the destination.
+ * Opens another connection at the same place the user is now: the same table,
+ * the SQL editor, the same migration. A linked connection is the same database
+ * in another environment, so the table is assumed to be there; otherwise the
+ * destination is asked first, so the switch cannot land on a table it lacks.
  */
-export function useSwitchConnection() {
+export function useGoToConnection() {
   const router = useRouter();
-  const params = useParams<{ connectionId: string; schema?: string; table?: string }>();
+  const pathname = usePathname();
   const { connection } = useExplorerContext();
   const connections = useConnections((state) => state.connections);
-  const sqlEditor = useSqlEditor();
-  const schemaDiff = useSchemaDiff();
-  const pane = sqlEditor.open ? "query" : schemaDiff.open ? "diff" : null;
+
+  return useCallback(
+    async (targetId: string) => {
+      if (targetId === connection.id) return;
+      const target = connections.find((item) => item.id === targetId);
+      if (!target) return;
+      dismissPalettes();
+
+      const route = parseRoute(pathname);
+      const linked = Boolean(connection.layoutGroup) && connection.layoutGroup === target.layoutGroup;
+      let tableExists = true;
+      if (route.kind === "table" && !linked) {
+        try {
+          tableExists = tableExistsOnConnection(await api.tables(target.url), route.table);
+        } catch {
+          // Unreachable for now; still land on that connection.
+          tableExists = false;
+        }
+      }
+      router.push(equivalentHref(pathname, targetId, { tableExists }));
+    },
+    [connection.id, connection.layoutGroup, connections, pathname, router],
+  );
+}
+
+/** Cycles to the next saved connection, staying on the same page. */
+export function useSwitchConnection() {
+  const { connection } = useExplorerContext();
+  const connections = useConnections((state) => state.connections);
+  const goTo = useGoToConnection();
   const next = nextConnection(connections, connection.id);
 
-  async function run() {
-    if (!next) return;
-    dismissPalettes();
-    const table = currentTable(params);
-    let tableExists = false;
-    if (!pane && table) {
-      try {
-        tableExists = tableExistsOnConnection(await api.tables(next.url), table);
-      } catch {
-        // Destination may be unreachable; still land on that connection.
-      }
-    }
-    router.push(
-      switchConnectionHref(next.id, {
-        pane,
-        table,
-        tableExists,
-      }),
-    );
-  }
-
   return {
-    run,
+    run: () => (next ? goTo(next.id) : Promise.resolve()),
     enabled: next !== undefined,
     next,
   };

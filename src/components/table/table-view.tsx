@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { PlusIcon } from "lucide-react";
 import { useExplorerContext } from "@/components/explorer/explorer-provider";
@@ -154,6 +155,25 @@ export function TableView({ table }: { table: TableRef }) {
         info?.columns.length ?? 0,
       ),
     });
+  }
+
+  if (tables.data && !info) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center gap-1.5 text-muted-foreground">
+        <p className="text-sm">
+          <span className="font-medium text-foreground">
+            {table.schema}.{table.name}
+          </span>{" "}
+          is not on {connection.name}
+        </p>
+        <Link
+          href={`/${encodeURIComponent(connection.id)}`}
+          className="text-xs underline underline-offset-4 hover:text-foreground"
+        >
+          Browse its tables
+        </Link>
+      </div>
+    );
   }
 
   return (

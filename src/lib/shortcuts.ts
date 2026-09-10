@@ -7,6 +7,8 @@ export const SHORTCUTS = {
   switchConnection: "⌘⇧E",
   compareSchema: "⌘⇧D",
   migrations: "⌘⇧M",
+  back: "⌘[",
+  forward: "⌘]",
 } as const;
 
 function opener() {

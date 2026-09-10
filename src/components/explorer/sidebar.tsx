@@ -26,6 +26,7 @@ import { SHORTCUTS } from "@/lib/shortcuts";
 import { tableKey, type TableInfo } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { ConnectionSwitcher } from "./connection-switcher";
+import { HistoryButtons } from "./history-buttons";
 import { useExplorerContext } from "./explorer-provider";
 import { SchemaMultiSelect } from "./schema-multi-select";
 import { TableList } from "./table-list";
@@ -242,6 +243,7 @@ export function Sidebar({ width: persistedWidth, onWidthChange, onCollapse }: Pr
     >
       <div className="flex flex-col gap-0.5 border-b border-sidebar-border/60 p-2">
         <div className="mb-1 flex items-center gap-1">
+          <HistoryButtons className="-ml-0.5" />
           <div className="min-w-0 flex-1">
             <ConnectionSwitcher current={connection} />
           </div>

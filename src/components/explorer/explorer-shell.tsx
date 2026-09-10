@@ -11,6 +11,7 @@ import { resolveConnectionColor } from "@/lib/connection-colors";
 import { ExplorerProvider } from "./explorer-provider";
 import { Sidebar } from "./sidebar";
 import { CommandPalette } from "./command-palette";
+import { HistoryButtons } from "./history-buttons";
 import { GlobalShortcuts } from "./global-shortcuts";
 import { TablePalette } from "./table-palette";
 
@@ -51,7 +52,7 @@ export function ExplorerShell({
         />
         <div className="flex min-h-0 flex-1 overflow-hidden">
           {browse.sidebarCollapsed ? (
-            <aside className="relative flex h-full w-10 shrink-0 justify-center border-r bg-sidebar pt-2">
+            <aside className="relative flex h-full w-10 shrink-0 flex-col items-center gap-1 border-r bg-sidebar pt-2">
               <span
                 aria-hidden
                 className="absolute inset-y-0 left-0 w-1"
@@ -66,6 +67,7 @@ export function ExplorerShell({
               >
                 <PanelLeftOpenIcon />
               </Button>
+              <HistoryButtons className="flex-col" />
             </aside>
           ) : (
             <Sidebar

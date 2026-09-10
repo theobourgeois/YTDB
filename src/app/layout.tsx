@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { ConvexClientProvider } from "@/components/ConvexClientProvider";
 import { LocalBridgeGate } from "@/components/local-bridge-gate";
+import { NavigationTracker } from "@/components/navigation-tracker";
 import { ThemeProvider } from "@/components/theme-provider";
 import { THEME_INIT_SCRIPT } from "@/lib/themes";
 import "./globals.css";
@@ -35,6 +36,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="flex min-h-full flex-col">
         <ThemeProvider>
           <ConvexClientProvider>
+            <NavigationTracker />
             <LocalBridgeGate>{children}</LocalBridgeGate>
           </ConvexClientProvider>
         </ThemeProvider>

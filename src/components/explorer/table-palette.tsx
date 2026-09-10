@@ -13,6 +13,7 @@ import { rankFuzzy, rankFuzzyMulti } from "@/lib/fuzzy";
 import { tableKey, type Connection, type TableInfo } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useExplorerContext } from "./explorer-provider";
+import { useGoToConnection } from "./use-switch-connection";
 
 const RECENT_LIMIT = 12;
 
@@ -154,6 +155,7 @@ function useOptionalTables(url: string | null) {
 
 export function TablePalette() {
   const router = useRouter();
+  const goTo = useGoToConnection();
   const params = useParams<{ connectionId: string; schema?: string; table?: string }>();
   const { connection, tables } = useExplorerContext();
   const connections = useConnections((state) => state.connections);
@@ -405,7 +407,7 @@ export function TablePalette() {
   function go(row: Row) {
     close();
     if (row.type === "connection") {
-      if (row.connection.id !== connection.id) router.push(`/${row.connection.id}`);
+      void goTo(row.connection.id);
       return;
     }
     router.push(tableHref(targetConnection.id, row.table));

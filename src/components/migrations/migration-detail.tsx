@@ -17,6 +17,7 @@ import {
   UndoIcon,
 } from "lucide-react";
 import { useExplorerContext } from "@/components/explorer/explorer-provider";
+import { useGoToConnection } from "@/components/explorer/use-switch-connection";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -80,6 +81,7 @@ export function MigrationDetail({ setId }: { setId: string }) {
   const activeSet = useMigrationSet(setId);
   const partners = useSharedLayoutPartners(connection.id);
   const setDraft = useQueries((state) => state.setDraft);
+  const goToConnection = useGoToConnection();
   const clearActiveSaved = useQueries((state) => state.setActiveSaved);
 
   const [pane, setPane] = useState<MigrationsPane>("migrations");
@@ -281,8 +283,7 @@ export function MigrationDetail({ setId }: { setId: string }) {
   }
 
   function runAgainst(connectionId: string) {
-    if (connectionId === connection.id) return;
-    router.push(`/${encodeURIComponent(connectionId)}/migrations`);
+    void goToConnection(connectionId);
   }
 
   function compareWith(targetId: string) {

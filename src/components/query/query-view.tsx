@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { SQLNamespace } from "@codemirror/lang-sql";
 import {
+  ArrowLeftIcon,
   BookmarkIcon,
   EraserIcon,
   LoaderCircleIcon,
@@ -10,9 +11,11 @@ import {
   SquareTerminalIcon,
 } from "lucide-react";
 import { useExplorerContext } from "@/components/explorer/explorer-provider";
+import { useNavigationHistory } from "@/components/explorer/use-navigation-history";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import { MAX_QUERY_LENGTH } from "@/lib/query-limits";
+import { SHORTCUTS } from "@/lib/shortcuts";
 import {
   MAX_EDITOR_HEIGHT,
   MIN_EDITOR_HEIGHT,
@@ -49,6 +52,12 @@ export function QueryView() {
   const editorRef = useRef<QueryEditorHandle>(null);
   const editorPaneRef = useRef<HTMLDivElement>(null);
   const requestRef = useRef<AbortController | null>(null);
+  const history = useNavigationHistory(connection.id);
+  // SQL opened from a migration wants a way back to it once it has been looked at.
+  const cameFromMigration =
+    history.back?.route.kind === "migration" && history.back.route.connectionId === connection.id
+      ? history.back
+      : null;
 
   const dirty = activeSaved !== null && activeSaved.sql !== draft;
   const canSave = draft.trim().length > 0 && (activeSaved === null || dirty);
@@ -174,11 +183,24 @@ export function QueryView() {
               />
             </span>
           )}
+          {cameFromMigration && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="ml-auto text-muted-foreground"
+              title={`Back to ${cameFromMigration.label} (${SHORTCUTS.back})`}
+              onClick={history.goBack}
+            >
+              <ArrowLeftIcon data-icon="inline-start" />
+              <span className="max-w-40 truncate">{cameFromMigration.label}</span>
+            </Button>
+          )}
           <Button
             type="button"
             variant="ghost"
             size="sm"
-            className="ml-auto"
+            className={cn(!cameFromMigration && "ml-auto")}
             disabled={!canSave}
             title={activeSaved ? "Save changes (⌘S)" : "Save query (⌘S)"}
             onClick={save}

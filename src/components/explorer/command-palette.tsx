@@ -20,6 +20,7 @@ import { tableKey, type TableRef } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useExplorerContext } from "./explorer-provider";
 import { useMigrationsPane } from "./use-migrations-pane";
+import { useNavigationHistory } from "./use-navigation-history";
 import { useSchemaDiff } from "./use-schema-diff";
 import { useSqlEditor } from "./use-sql-editor";
 import { useSwitchConnection } from "./use-switch-connection";
@@ -85,6 +86,7 @@ export function CommandPalette() {
   const migrations = useMigrationsPane();
   const compare = useCompareTarget(connection.id);
   const switchConnection = useSwitchConnection();
+  const history = useNavigationHistory(connection.id);
   const addConnection = useConnections((state) => state.add);
   const [browse, setBrowse] = useBrowseState(connection.id);
   const [open, setOpen] = useState(false);
@@ -113,6 +115,22 @@ export function CommandPalette() {
         enabled: true,
         shortcut: SHORTCUTS.sqlEditor,
         run: () => sqlEditor.toggle(),
+      },
+      {
+        id: "go-back",
+        title: history.back ? `Back to ${history.back.label}` : "Back",
+        keywords: ["back", "previous", "return", "history", "undo"],
+        enabled: history.back !== null,
+        shortcut: SHORTCUTS.back,
+        run: () => history.goBack(),
+      },
+      {
+        id: "go-forward",
+        title: history.forward ? `Forward to ${history.forward.label}` : "Forward",
+        keywords: ["forward", "next", "history", "redo"],
+        enabled: history.forward !== null,
+        shortcut: SHORTCUTS.forward,
+        run: () => history.goForward(),
       },
       {
         id: "switch-connection",
@@ -248,6 +266,7 @@ export function CommandPalette() {
     browse.pinnedTables,
     compare.target,
     connection.id,
+    history,
     migrations,
     pinned,
     schemaDiff,
