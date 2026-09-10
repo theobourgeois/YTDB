@@ -13,8 +13,12 @@ const APPLY_DIRS = new Set(["apply", "up", "forward"]);
 const REVERT_DIRS = new Set(["revert", "down", "rollback", "undo"]);
 
 /** Filename suffixes used by flat layouts that have no apply/revert directories. */
-const APPLY_SUFFIXES = [".up", ".apply", ".forward"];
-const REVERT_SUFFIXES = [".down", ".revert", ".rollback", ".undo"];
+const APPLY_SUFFIXES = [".up", ".apply", ".forward", "_up", "_apply", "-up", "-apply"];
+const REVERT_SUFFIXES = [
+  ".down", ".revert", ".rollback", ".undo",
+  "_down", "_revert", "_rollback", "_undo",
+  "-down", "-revert", "-rollback", "-undo",
+];
 
 export type ImportedFile = {
   /** Path relative to the imported folder, with `/` separators. */

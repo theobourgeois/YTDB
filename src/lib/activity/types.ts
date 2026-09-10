@@ -18,6 +18,7 @@ export const API_ACTIONS = [
   "migrate",
   "adopt",
   "repo",
+  "detect",
 ] as const;
 
 /** Actions that only ever happen in the browser, reported by the client. */

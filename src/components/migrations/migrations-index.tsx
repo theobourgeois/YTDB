@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
-import { ChevronRightIcon, FolderOpenIcon, MoreIcon, RefreshIcon, StackIcon, PlusIcon, ClipboardCheckIcon, WarningIcon } from "@/components/icons";
+import { ChevronDownIcon, ChevronRightIcon, FolderOpenIcon, MoreIcon, RefreshIcon, StackIcon, PlusIcon, ClipboardCheckIcon, WarningIcon, XIcon } from "@/components/icons";
 import { ConnectionColorMark } from "@/components/connections/connection-color";
 import { useExplorerContext } from "@/components/explorer/explorer-provider";
 import { ViewHeader } from "@/components/explorer/view-header";
@@ -12,16 +12,20 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { SearchField } from "@/components/ui/search-field";
 import { useAsync } from "@/hooks/use-async";
 import { api } from "@/lib/api";
 import { buildHistory } from "@/lib/migrations/history";
 import {
   applyPlan,
   discoverMigrations,
+  matchesFilter,
   scopeLedger,
   summarize,
   type DiscoveredMigration,
@@ -29,7 +33,13 @@ import {
 } from "@/lib/migrations/status";
 import type { AdoptEntry, LedgerResult, MigrationSet } from "@/lib/migrations/types";
 import { useSharedLayoutPartners } from "@/lib/store/explorer";
-import { useMigrations, useRepoRoot } from "@/lib/store/migrations";
+import {
+  useListFilter,
+  useMigrations,
+  useRepoRoot,
+  type ListFilter,
+  type ListStatusFilter,
+} from "@/lib/store/migrations";
 import type { Connection } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { MigrationHistory } from "./migration-history";
@@ -55,6 +65,7 @@ export function MigrationsIndex() {
   const createSet = useMigrations((state) => state.createSet);
   const adoptSet = useMigrations((state) => state.adoptSet);
   const addFiles = useMigrations((state) => state.addFiles);
+  const removeSet = useMigrations((state) => state.removeSet);
   const ledgerSchema = useMigrations((state) => state.ledgerSchema);
   const runRecords = useMigrations((state) => state.history);
   const partners = useSharedLayoutPartners(connection.id);
@@ -70,6 +81,8 @@ export function MigrationsIndex() {
 
   const { scope, root } = useRepoRoot(connection.id);
   const setRepoRoot = useMigrations((state) => state.setRepoRoot);
+  const filter = useListFilter(scope);
+  const setListFilter = useMigrations((state) => state.setListFilter);
   const repo = useRepo(root);
   const repoSets = useMemo(
     () => [...(repo.data?.sets ?? [])].sort((a, b) => b.importedAt - a.importedAt),
@@ -234,6 +247,40 @@ export function MigrationsIndex() {
   const loading = ledgers.loading || repo.loading;
   const empty = repoSets.length === 0 && sets.length === 0 && discovered.length === 0;
 
+  const cardEnvironments = useCallback(
+    (set: MigrationSet): CardEnvironment[] =>
+      environmentConnections.map((item) => ({
+        connection: item,
+        summary: summarize(set, ledgers.data?.[item.id]?.ledger ?? null),
+        read: Boolean(ledgers.data?.[item.id]?.ledger),
+        error: ledgers.data?.[item.id]?.error ?? null,
+      })),
+    [environmentConnections, ledgers.data],
+  );
+
+  const passes = useCallback(
+    (set: MigrationSet) =>
+      matchesFilter(
+        set,
+        cardEnvironments(set).map((item) => ({
+          connectionId: item.connection.id,
+          summary: item.summary,
+          read: item.read,
+        })),
+        filter,
+      ),
+    [cardEnvironments, filter],
+  );
+
+  const shownRepoSets = useMemo(() => repoSets.filter(passes), [repoSets, passes]);
+  const shownImported = useMemo(() => ordered.filter(passes), [ordered, passes]);
+  const filtering = filter.query.trim() !== "" || filter.status !== "all";
+  const hidden = repoSets.length + ordered.length - shownRepoSets.length - shownImported.length;
+
+  function forgetImported() {
+    for (const set of sets) removeSet(set.id);
+  }
+
   function reload() {
     ledgers.reload();
     repo.reload();
@@ -268,7 +315,7 @@ export function MigrationsIndex() {
             <PlusIcon data-icon="inline-start" />
             New migration
           </Button>
-          {root && (
+          {(root || sets.length > 0) && (
             <DropdownMenu>
               <DropdownMenuTrigger
                 render={<Button size="icon-sm" variant="ghost" aria-label="More migration actions" />}
@@ -277,21 +324,33 @@ export function MigrationsIndex() {
                 <MoreIcon />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="min-w-72">
-                <DropdownMenuItem
-                  disabled={loading || adoptable.entries.length === 0}
-                  onClick={() => setAdopting(adoptable)}
-                >
-                  <ClipboardCheckIcon />
-                  Mark everything as applied on {connection.name}
-                  <span className="ml-auto pl-3 font-mono text-[11px] text-muted-foreground">
-                    {adoptable.entries.length}
-                  </span>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => setEditingRoot(true)}>
-                  <FolderOpenIcon />
-                  Change folder…
-                </DropdownMenuItem>
+                {root && (
+                  <>
+                    <DropdownMenuItem
+                      disabled={loading || adoptable.entries.length === 0}
+                      onClick={() => setAdopting(adoptable)}
+                    >
+                      <ClipboardCheckIcon />
+                      Mark everything as applied on {connection.name}
+                      <span className="ml-auto pl-3 font-mono text-[11px] text-muted-foreground">
+                        {adoptable.entries.length}
+                      </span>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => setEditingRoot(true)}>
+                      <FolderOpenIcon />
+                      Change folder…
+                    </DropdownMenuItem>
+                  </>
+                )}
+                {sets.length > 0 && (
+                  <>
+                    {root && <DropdownMenuSeparator />}
+                    <DropdownMenuItem variant="destructive" onClick={forgetImported}>
+                      Forget {sets.length} imported migration{sets.length === 1 ? "" : "s"}
+                    </DropdownMenuItem>
+                  </>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           )}
@@ -342,21 +401,23 @@ export function MigrationsIndex() {
           </p>
         </div>
       ) : (
+        <>
+        <FilterBar
+          filter={filter}
+          environments={environmentConnections}
+          hidden={hidden}
+          onChange={(patch) => setListFilter(scope, patch)}
+        />
         <ScrollArea className="min-h-0 flex-1">
-          {repoSets.map((set) => (
+          {shownRepoSets.map((set) => (
             <MigrationCard
               key={set.id}
               set={set}
               href={`${base}/${encodeURIComponent(set.id)}`}
-              environments={environmentConnections.map((item) => ({
-                connection: item,
-                summary: summarize(set, ledgers.data?.[item.id]?.ledger ?? null),
-                read: Boolean(ledgers.data?.[item.id]?.ledger),
-                error: ledgers.data?.[item.id]?.error ?? null,
-              }))}
+              environments={cardEnvironments(set)}
             />
           ))}
-          {ordered.length > 0 && root && (
+          {shownImported.length > 0 && root && (
             <p
               className="border-b px-4 pt-2.5 pb-1 text-[11px] font-medium tracking-wide text-muted-foreground uppercase"
               title="Imported into this browser rather than read from the folder."
@@ -364,19 +425,26 @@ export function MigrationsIndex() {
               Imported
             </p>
           )}
-          {ordered.map((set) => (
+          {shownImported.map((set) => (
             <MigrationCard
               key={set.id}
               set={set}
               href={`${base}/${encodeURIComponent(set.id)}`}
-              environments={environmentConnections.map((item) => ({
-                connection: item,
-                summary: summarize(set, ledgers.data?.[item.id]?.ledger ?? null),
-                read: Boolean(ledgers.data?.[item.id]?.ledger),
-                error: ledgers.data?.[item.id]?.error ?? null,
-              }))}
+              environments={cardEnvironments(set)}
             />
           ))}
+          {filtering && shownRepoSets.length === 0 && shownImported.length === 0 && (
+            <p className="px-4 py-6 text-sm text-muted-foreground">
+              Nothing matches.{" "}
+              <button
+                type="button"
+                className="cursor-pointer underline underline-offset-4 hover:text-foreground"
+                onClick={() => setListFilter(scope, { query: "", status: "all" })}
+              >
+                Clear the filter
+              </button>
+            </p>
+          )}
           {discovered.length > 0 && (
             <div className="border-b bg-muted/20">
               <p
@@ -404,6 +472,7 @@ export function MigrationsIndex() {
             </div>
           )}
         </ScrollArea>
+        </>
       )}
 
       <MigrationsFooter
@@ -451,6 +520,93 @@ function caption(onDisk: number, imported: number, discovered: number, reading: 
   if (imported > 0) parts.push(`${imported} imported`);
   if (discovered > 0) parts.push(`${discovered} in the ledger only`);
   return parts.join(" · ");
+}
+
+const STATUS_LABEL: Record<Exclude<ListStatusFilter, `pending:${string}`>, string> = {
+  all: "All",
+  pending: "Not fully applied",
+  untouched: "Not started anywhere",
+  complete: "Applied everywhere",
+};
+
+function statusLabel(status: ListStatusFilter, environments: Connection[]): string {
+  if (status.startsWith("pending:")) {
+    const target = environments.find((item) => item.id === status.slice("pending:".length));
+    return target ? `Pending on ${target.name}` : STATUS_LABEL.pending;
+  }
+  return STATUS_LABEL[status as keyof typeof STATUS_LABEL];
+}
+
+/** Search and a status filter, sitting over the list like the sidebar's table search does. */
+function FilterBar({
+  filter,
+  environments,
+  hidden,
+  onChange,
+}: {
+  filter: ListFilter;
+  environments: Connection[];
+  hidden: number;
+  onChange: (patch: Partial<ListFilter>) => void;
+}) {
+  const active = filter.status !== "all";
+  return (
+    <div className="flex items-center gap-1 border-b px-2 py-1">
+      <SearchField
+        value={filter.query}
+        onChange={(event) => onChange({ query: event.target.value })}
+        placeholder="Search migrations"
+        aria-label="Search migrations"
+        className="min-w-0 flex-1"
+        trailing={
+          filter.query ? (
+            <button
+              type="button"
+              aria-label="Clear search"
+              className="cursor-pointer rounded p-0.5 hover:text-foreground"
+              onClick={() => onChange({ query: "" })}
+            >
+              <XIcon className="size-3.5" />
+            </button>
+          ) : null
+        }
+      />
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={<Button size="sm" variant={active ? "outline" : "ghost"} />}
+          className="cursor-pointer"
+        >
+          {statusLabel(filter.status, environments)}
+          <ChevronDownIcon data-icon="inline-end" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="min-w-56">
+          <DropdownMenuRadioGroup
+            value={filter.status}
+            onValueChange={(value) => onChange({ status: value as ListStatusFilter })}
+          >
+            {(Object.keys(STATUS_LABEL) as (keyof typeof STATUS_LABEL)[]).map((value) => (
+              <DropdownMenuRadioItem key={value} value={value}>
+                {STATUS_LABEL[value]}
+              </DropdownMenuRadioItem>
+            ))}
+            {environments.length > 1 && <DropdownMenuSeparator />}
+            {environments.length > 1 &&
+              environments.map((item) => (
+                <DropdownMenuRadioItem key={item.id} value={`pending:${item.id}`}>
+                  <ConnectionColorMark connection={item} className="size-1.5" />
+                  Pending on {item.name}
+                </DropdownMenuRadioItem>
+              ))}
+          </DropdownMenuRadioGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {hidden > 0 && (
+        <span className="shrink-0 pr-1 text-[11px] tabular-nums text-muted-foreground">
+          {hidden} hidden
+        </span>
+      )}
+    </div>
+  );
 }
 
 /** Where the list is being read from, and which branch that folder is on right now. */

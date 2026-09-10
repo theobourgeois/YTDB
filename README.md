@@ -82,10 +82,20 @@ rebuilt from the folder.
 
 A database that has been running for a while has already had most of the folder applied to it,
 just not through YTDB, so its ledger is empty and everything shows as pending. **Mark everything as
-applied** in the list's menu writes a ledger row for every migration that environment has no row
-for — in one transaction, without running any SQL, and never touching a row that is already there.
-Do it once per environment from a checkout of your main branch, and from then on only what is
-genuinely new shows as pending.
+applied** in the list's menu reads the database's schema first and sorts the migrations by what it
+finds: the ones whose tables, columns, indexes, types, functions, policies, and triggers are all
+there; the ones only partly there; the ones that leave no trace in the schema (data backfills,
+seeds, grants); and the ones not there at all. The first group is ticked for you; open any group to
+see what is missing for each migration and tick or untick as you know better. Marking writes one
+ledger row per ticked migration, in one transaction, without running any SQL, and never touches a
+row that is already there. Do it once per environment from a checkout of your main branch, and from
+then on only what is genuinely new shows as pending.
+
+### Finding what to work on
+
+The list has a search box and a status filter — not fully applied, not started anywhere, applied
+everywhere, or pending on one environment in particular. Both are remembered per set of linked
+connections, so the view you left is the view you come back to.
 
 Drop in whatever you have to start one. A flat folder of migrations is enough:
 

@@ -35,6 +35,16 @@ export type MigrationRunRecord = {
   ranAt: number;
 };
 
+/** Which migrations the list shows. `pending:<connectionId>` narrows to one environment. */
+export type ListStatusFilter = "all" | "pending" | "untouched" | "complete" | `pending:${string}`;
+
+export type ListFilter = {
+  query: string;
+  status: ListStatusFilter;
+};
+
+export const DEFAULT_LIST_FILTER: ListFilter = { query: "", status: "all" };
+
 type MigrationsState = {
   sets: MigrationSet[];
   history: MigrationRunRecord[];
@@ -52,6 +62,9 @@ type MigrationsState = {
    */
   repoRoots: Record<string, string>;
   setRepoRoot: (scope: string, root: string | null) => void;
+  /** How the list is narrowed, kept per set of environments so it is still there next visit. */
+  listFilters: Record<string, ListFilter>;
+  setListFilter: (scope: string, patch: Partial<ListFilter>) => void;
   /** Starts an empty set, ready for files to be added to it. */
   createSet: (name: string) => string;
   /** Folds files into a set, adding what is new and updating what is not. */
@@ -76,6 +89,14 @@ export const useMigrations = create<MigrationsState>()(
         if (!isLedgerSchema(schema)) return;
         set({ ledgerSchema: schema });
       },
+      listFilters: {},
+      setListFilter: (scope, patch) =>
+        set((state) => ({
+          listFilters: {
+            ...state.listFilters,
+            [scope]: { ...(state.listFilters[scope] ?? DEFAULT_LIST_FILTER), ...patch },
+          },
+        })),
       repoRoots: {},
       setRepoRoot: (scope, root) =>
         set((state) => {
@@ -162,6 +183,10 @@ export const useMigrations = create<MigrationsState>()(
 
 export function useMigrationSet(setId: string): MigrationSet | null {
   return useMigrations((state) => state.sets.find((candidate) => candidate.id === setId) ?? null);
+}
+
+export function useListFilter(scope: string): ListFilter {
+  return useMigrations((state) => state.listFilters[scope] ?? DEFAULT_LIST_FILTER);
 }
 
 /** The folder this connection's environments read migrations from, if one is set. */

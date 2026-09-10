@@ -372,7 +372,7 @@ export function MigrationDetail({ setId }: { setId: string }) {
         setDragging(true);
       }}
     >
-      <Header name={activeSet?.name ?? ""}>
+      <Header name={activeSet?.name ?? ""} indexHref={indexHref}>
         {activeSet.source && (
           <span
             className="flex min-w-0 items-center gap-1 text-[11px] text-muted-foreground"
@@ -641,10 +641,31 @@ export function MigrationDetail({ setId }: { setId: string }) {
   );
 }
 
-function Header({ name, children }: { name: string; children?: React.ReactNode }) {
+function Header({
+  name,
+  indexHref,
+  children,
+}: {
+  name: string;
+  /** Where the icon leads: the list this migration came from. */
+  indexHref?: string;
+  children?: React.ReactNode;
+}) {
+  const icon = <StackIcon className="size-4 shrink-0 text-muted-foreground" />;
   return (
     <ViewHeader>
-      <StackIcon className="size-4 shrink-0 text-muted-foreground" />
+      {indexHref ? (
+        <Link
+          href={indexHref}
+          title="All migrations"
+          aria-label="All migrations"
+          className="flex size-6 shrink-0 items-center justify-center rounded-md outline-none hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring/60"
+        >
+          {icon}
+        </Link>
+      ) : (
+        icon
+      )}
       <span className="min-w-0 truncate font-medium">{name}</span>
       {children}
     </ViewHeader>

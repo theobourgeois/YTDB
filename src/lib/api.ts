@@ -1,3 +1,4 @@
+import type { DetectionResult } from "./migrations/detect";
 import type {
   AdoptRequest,
   AdoptResult,
@@ -45,6 +46,13 @@ async function post<T>(path: string, body: unknown, signal?: AbortSignal): Promi
   try {
     data = JSON.parse(text);
   } catch {
+    // A route the bridge has never heard of comes back as Next's HTML 404: the
+    // YTDB on this machine predates the page asking, and the fix is to restart it.
+    if (response.status === 404) {
+      throw new Error(
+        "The YTDB running on your machine is older than this page and does not know this request. Restart it with `npx @theobourgeois/ytdb@latest`.",
+      );
+    }
     throw new Error(`YTDB bridge returned an invalid response (HTTP ${response.status}).`);
   }
   if (!response.ok) {
@@ -103,6 +111,13 @@ export const api = {
 
   adopt: (connectionUrl: string, adopt: AdoptRequest, signal?: AbortSignal) =>
     post<AdoptResult>("/api/adopt", { connectionUrl, adopt }, signal),
+
+  /** Checks the catalog for what each migration would have left behind. */
+  detect: (
+    connectionUrl: string,
+    migrations: { setName: string; version: string; sql: string }[],
+    signal?: AbortSignal,
+  ) => post<{ results: DetectionResult[] }>("/api/detect", { connectionUrl, migrations }, signal),
 
   /** Reads a migrations folder from the machine the bridge runs on. */
   repo: (root: string, signal?: AbortSignal) => post<RepoRead>("/api/repo", { root }, signal),

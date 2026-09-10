@@ -146,6 +146,15 @@ export function summarizeResult(
       };
     case "adopt":
       return { recorded: value?.recorded ?? 0, existing: value?.existing ?? 0 };
+    case "detect": {
+      const results = Array.isArray(value?.results) ? (value.results as Record<string, unknown>[]) : [];
+      const counts: Record<string, number> = {};
+      for (const item of results) {
+        const verdict = String(item.verdict);
+        counts[verdict] = (counts[verdict] ?? 0) + 1;
+      }
+      return { migrations: results.length, ...counts };
+    }
     case "repo":
       return {
         sets: rowCount(value?.sets),

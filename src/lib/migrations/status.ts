@@ -198,3 +198,45 @@ export function discoverMigrations(
     })
     .sort((a, b) => a.name.localeCompare(b.name));
 }
+
+/** One environment's standing on a set, as the list filter sees it. */
+export type EnvironmentStanding = { connectionId: string; summary: SetSummary; read: boolean };
+
+/**
+ * Whether a set passes the list's filter. An environment whose ledger has not
+ * been read yet is treated as though it might still need the set, so a slow
+ * ledger never hides work.
+ */
+export function matchesFilter(
+  set: MigrationSet,
+  standings: EnvironmentStanding[],
+  filter: { query: string; status: string },
+): boolean {
+  const query = filter.query.trim().toLowerCase();
+  if (query) {
+    const haystack = [set.name, ...set.steps.flatMap((step) => [step.version, step.name])]
+      .join("\n")
+      .toLowerCase();
+    if (!haystack.includes(query)) return false;
+  }
+  const { status } = filter;
+  if (status === "all") return true;
+  if (status.startsWith("pending:")) {
+    const standing = standings.find((item) => item.connectionId === status.slice("pending:".length));
+    if (!standing) return true;
+    return !standing.read || standing.summary.pending > 0 || standing.summary.drifted > 0;
+  }
+  if (status === "pending") {
+    return standings.some((item) => !item.read || item.summary.pending > 0 || item.summary.drifted > 0);
+  }
+  if (status === "untouched") {
+    return standings.every((item) => !item.read || (item.summary.applied === 0 && item.summary.drifted === 0));
+  }
+  if (status === "complete") {
+    return (
+      set.steps.length > 0 &&
+      standings.every((item) => item.read && item.summary.pending === 0 && item.summary.drifted === 0)
+    );
+  }
+  return true;
+}
