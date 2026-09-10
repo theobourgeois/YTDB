@@ -166,6 +166,8 @@ export function summarizeResult(
           : 0,
         branch: (value?.git as Record<string, unknown> | null)?.branch ?? null,
       };
+    case "note":
+      return { notePath: value?.notePath ?? null };
     case "schema":
       return {
         relations: rowCount(value?.relations),

@@ -4,6 +4,7 @@ import { logUiAction } from "../activity/client";
 import { emptySet, mergeFiles, parseMigrationFiles, type ImportedFile, type MergeReport } from "../migrations/parse";
 import {
   DEFAULT_LEDGER_SCHEMA,
+  MAX_NOTE_LENGTH,
   isLedgerSchema,
   type MigrationDirection,
   type MigrationSet,
@@ -72,6 +73,8 @@ type MigrationsState = {
   /** Takes a set built elsewhere — rebuilt from a ledger, say — as it stands. */
   adoptSet: (set: MigrationSet) => string;
   renameSet: (id: string, name: string) => void;
+  /** Sets an imported migration's note; an empty one removes it. */
+  setNote: (id: string, note: string) => void;
   removeSet: (id: string) => void;
   /** Drops one migration from a set, without touching any database. */
   removeStep: (setId: string, version: string) => void;
@@ -149,6 +152,14 @@ export const useMigrations = create<MigrationsState>()(
         set((state) => ({
           sets: state.sets.map((candidate) =>
             candidate.id === id ? { ...candidate, name: clean } : candidate,
+          ),
+        }));
+      },
+      setNote: (id, note) => {
+        const clean = note.trim().slice(0, MAX_NOTE_LENGTH) || undefined;
+        set((state) => ({
+          sets: state.sets.map((candidate) =>
+            candidate.id === id ? { ...candidate, note: clean } : candidate,
           ),
         }));
       },

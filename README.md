@@ -64,6 +64,15 @@ and the header says which branch that is. Switch branches and the list follows. 
 set of linked connections, so dev and prod of one project read the same folder and another project
 reads its own.
 
+### Leaving a note on how to run it
+
+**Add note** in a migration's `⋯` menu leaves word for whoever runs it next — *apply 0001–0007,
+deploy the app, then apply 0008*. It sits above the files on the migration's page, and again in the
+confirmation before anything runs. For a migration read from a folder the note is the `README.md`
+(or `NOTES.md`) beside its SQL, so it is committed with it and follows the branch; a README already
+there is picked up as the note. An imported migration keeps its note in the browser. Emptying the
+note removes it.
+
 ### The ledger
 
 Applying a migration records it in a small table the database keeps for itself,

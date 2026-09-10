@@ -1,11 +1,17 @@
 import "server-only";
 import { execFile } from "node:child_process";
-import { readdir, readFile, stat } from "node:fs/promises";
+import { readdir, readFile, stat, unlink, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, isAbsolute, join, relative, resolve } from "node:path";
 import { promisify } from "node:util";
 import { mergeFiles, parseMigrationFiles, type ImportedFile } from "./parse";
-import { repoSetId, type MigrationSet, type RepoRead } from "./types";
+import {
+  MAX_NOTE_LENGTH,
+  repoSetId,
+  type MigrationSet,
+  type NoteResult,
+  type RepoRead,
+} from "./types";
 
 const run = promisify(execFile);
 
@@ -25,6 +31,39 @@ export function resolveRoot(input: string): string {
     trimmed === "~" ? homedir() : trimmed.startsWith("~/") ? join(homedir(), trimmed.slice(2)) : trimmed;
   if (!isAbsolute(expanded)) throw new Error(`"${trimmed}" is not an absolute path`);
   return resolve(expanded);
+}
+
+/** Files at the top of a migration's folder read as its note, in order of preference. */
+const NOTE_FILES = ["readme.md", "notes.md", "note.md", "readme.txt", "notes.txt", "note.txt"];
+
+/** Where a new note is written, when the folder has none: the first name not already taken. */
+const NEW_NOTE_FILES = ["README.md", "NOTES.md"];
+
+/**
+ * The note beside a migration's SQL. A file too long to be a note — a whole
+ * project's README, say — is passed over rather than shown or overwritten.
+ */
+async function readNote(dir: string): Promise<{ note: string; notePath: string } | null> {
+  const names = (await readdir(dir, { withFileTypes: true }))
+    .filter((entry) => entry.isFile())
+    .map((entry) => entry.name);
+  for (const wanted of NOTE_FILES) {
+    const name = names.find((candidate) => candidate.toLowerCase() === wanted);
+    if (!name) continue;
+    const notePath = join(dir, name);
+    if ((await stat(notePath)).size > MAX_NOTE_LENGTH) continue;
+    return { note: (await readFile(notePath, "utf8")).trim(), notePath };
+  }
+  return null;
+}
+
+async function exists(path: string): Promise<boolean> {
+  try {
+    await stat(path);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 async function isDirectory(path: string): Promise<boolean> {
@@ -73,6 +112,7 @@ async function readSet(
   const parsed = parseMigrationFiles(files);
   if (parsed.errors.length > 0 && parsed.applies.size === 0) return null;
   const report = mergeFiles([], parsed);
+  const found = await readNote(dir);
   return {
     id: repoSetId(name),
     name,
@@ -80,7 +120,8 @@ async function readSet(
     importedAt: Math.round(newest),
     steps: report.steps,
     skipped: report.skipped,
-    source: { root, path: dir },
+    note: found?.note || undefined,
+    source: { root, path: dir, notePath: found?.notePath },
   };
 }
 
@@ -152,16 +193,56 @@ export async function readRepo(input: string): Promise<RepoRead> {
     skipped.push(...report.skipped);
     if (report.steps.length > 0) {
       const name = basename(root);
+      const found = await readNote(root);
       sets.push({
         id: repoSetId(name),
         name,
         importedAt: Math.round(newest),
         steps: report.steps,
         skipped: [],
-        source: { root, path: root },
+        note: found?.note || undefined,
+        source: { root, path: root, notePath: found?.notePath },
       });
     }
   }
 
   return { root, sets, skipped, git: await describeCheckout(root) };
+}
+
+/**
+ * Writes a migration's note into its folder, so it is committed with the SQL and
+ * whoever runs it next reads it. Only a folder the root actually reads as a
+ * migration can be written to, and only its note file; an empty note removes it.
+ */
+export async function writeNote(rootInput: string, pathInput: string, text: string): Promise<NoteResult> {
+  const { root, sets } = await readRepo(rootInput);
+  const dir = resolve(pathInput);
+  const set = sets.find((candidate) => candidate.source?.path === dir);
+  if (!set?.source) throw new Error(`${dir} is not a migration in ${root}`);
+
+  const note = text.replace(/\r\n/g, "\n").trim();
+  if (note.length > MAX_NOTE_LENGTH) {
+    throw new Error(`That note is over ${MAX_NOTE_LENGTH.toLocaleString()} characters`);
+  }
+
+  const existing = set.source.notePath;
+  if (!note) {
+    if (existing) await unlink(existing);
+    return { note: null, notePath: null };
+  }
+
+  let target = existing;
+  if (!target) {
+    for (const name of NEW_NOTE_FILES) {
+      if (!(await exists(join(dir, name)))) {
+        target = join(dir, name);
+        break;
+      }
+    }
+  }
+  if (!target) throw new Error(`${dir} already has a README.md and NOTES.md too long to be a note`);
+
+  // A new file is created exclusively, so a file that appeared since the read is never clobbered.
+  await writeFile(target, `${note}\n`, { encoding: "utf8", flag: existing ? "w" : "wx" });
+  return { note, notePath: target };
 }

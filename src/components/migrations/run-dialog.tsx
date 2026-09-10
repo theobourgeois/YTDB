@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckIcon, CircleDashedIcon, SpinnerIcon, MinusIcon, WarningIcon, XIcon } from "@/components/icons";
+import { CheckIcon, CircleDashedIcon, SpinnerIcon, MinusIcon, NoteIcon, WarningIcon, XIcon } from "@/components/icons";
 import { ConnectionColorMark } from "@/components/connections/connection-color";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,6 +36,8 @@ type Props = {
   running: boolean;
   /** True when this only writes the ledger, without running any SQL. */
   recordOnly: boolean;
+  /** The author's note on how to run the migration, read before anything runs. */
+  note?: string;
   onRun: () => void;
   onStop: () => void;
   onClose: () => void;
@@ -82,6 +84,7 @@ export function MigrationRunDialog({
   progress,
   running,
   recordOnly,
+  note,
   onRun,
   onStop,
   onClose,
@@ -135,6 +138,13 @@ export function MigrationRunDialog({
             </span>
           </DialogDescription>
         </DialogHeader>
+
+        {!progress && note && (
+          <p className="flex max-h-40 gap-2 overflow-y-auto rounded-md border bg-muted/30 px-3 py-2 text-xs">
+            <NoteIcon className="mt-px size-3.5 shrink-0 text-muted-foreground" />
+            <span className="min-w-0 flex-1 whitespace-pre-wrap break-words">{note}</span>
+          </p>
+        )}
 
         {rows.length > 0 && (
           <div className="max-h-64 overflow-y-auto rounded-md border">

@@ -18,6 +18,7 @@ export const API_ACTIONS = [
   "migrate",
   "adopt",
   "repo",
+  "note",
   "detect",
 ] as const;
 

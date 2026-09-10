@@ -59,11 +59,23 @@ export type MigrationSet = {
   /** Files that were read but could not be placed, with the reason. */
   skipped: string[];
   /**
-   * Where on disk this set was read from, when it came from a migrations folder
-   * rather than an import. Such a set is re-read on every visit and never edited here.
+   * Whatever the author wants the next person to know before running it — the
+   * order to go in, what to deploy in between. For a folder, the README beside the SQL.
    */
-  source?: { root: string; path: string };
+  note?: string;
+  /**
+   * Where on disk this set was read from, when it came from a migrations folder
+   * rather than an import. Such a set is re-read on every visit and never edited
+   * here, bar its note, which is written back to the folder so it travels with the branch.
+   */
+  source?: { root: string; path: string; notePath?: string };
 };
+
+/** Longest note kept; a note is a few lines on how to run something, not documentation. */
+export const MAX_NOTE_LENGTH = 20_000;
+
+/** What the note in a migrations folder says after a write; null once it is removed. */
+export type NoteResult = { note: string | null; notePath: string | null };
 
 /** Prefix of the id a folder-backed set gets, so a page can tell it from an imported one. */
 export const REPO_SET_ID_PREFIX = "repo:";

@@ -5,6 +5,7 @@ import type {
   LedgerResult,
   MigrationRequest,
   MigrationResult,
+  NoteResult,
   RepoRead,
 } from "./migrations/types";
 import type {
@@ -121,4 +122,8 @@ export const api = {
 
   /** Reads a migrations folder from the machine the bridge runs on. */
   repo: (root: string, signal?: AbortSignal) => post<RepoRead>("/api/repo", { root }, signal),
+
+  /** Writes a folder migration's note beside its SQL; an empty note removes the file. */
+  note: (root: string, path: string, note: string, signal?: AbortSignal) =>
+    post<NoteResult>("/api/note", { root, path, note }, signal),
 };

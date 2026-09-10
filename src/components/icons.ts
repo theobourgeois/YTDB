@@ -51,6 +51,7 @@ export {
   PiLink as LinkIcon,
   PiMagnifyingGlass as SearchIcon,
   PiMinus as MinusIcon,
+  PiNote as NoteIcon,
   PiPencilSimple as PencilIcon,
   PiPencilSimpleLine as PencilLineIcon,
   PiPlay as PlayIcon,

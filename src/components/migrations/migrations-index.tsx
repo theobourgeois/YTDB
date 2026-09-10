@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
-import { ChevronDownIcon, ChevronRightIcon, FolderOpenIcon, MoreIcon, RefreshIcon, StackIcon, PlusIcon, ClipboardCheckIcon, WarningIcon, XIcon } from "@/components/icons";
+import { ChevronDownIcon, ChevronRightIcon, FolderOpenIcon, MoreIcon, NoteIcon, RefreshIcon, StackIcon, PlusIcon, ClipboardCheckIcon, WarningIcon, XIcon } from "@/components/icons";
 import { ConnectionColorMark } from "@/components/connections/connection-color";
 import { useExplorerContext } from "@/components/explorer/explorer-provider";
 import { ViewHeader } from "@/components/explorer/view-header";
@@ -666,7 +666,14 @@ function MigrationCard({
       className="flex items-center gap-3 border-b px-4 py-3 outline-none transition-colors hover:bg-muted/40 focus-visible:bg-muted/40"
     >
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium">{set.name}</p>
+        <p className="flex min-w-0 items-center gap-1.5 text-sm font-medium">
+          <span className="truncate">{set.name}</span>
+          {set.note && (
+            <span title={set.note} className="shrink-0 text-muted-foreground">
+              <NoteIcon className="size-3.5" />
+            </span>
+          )}
+        </p>
         <p className="truncate text-xs text-muted-foreground">
           {set.steps.length === 0
             ? "No files yet"

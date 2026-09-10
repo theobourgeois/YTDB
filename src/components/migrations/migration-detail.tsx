@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useRef, useState } from "react";
-import { ClipboardCheckIcon, FolderOpenIcon, FolderUploadIcon, StackIcon, MoreIcon, PencilIcon, PlayIcon, RefreshIcon, TableIcon, WarningIcon, UndoIcon } from "@/components/icons";
+import { ClipboardCheckIcon, FolderOpenIcon, FolderUploadIcon, StackIcon, MoreIcon, NoteIcon, PencilIcon, PlayIcon, RefreshIcon, TableIcon, WarningIcon, UndoIcon } from "@/components/icons";
 import { useExplorerContext } from "@/components/explorer/explorer-provider";
 import { useGoToConnection } from "@/components/explorer/use-switch-connection";
 import { ViewHeader } from "@/components/explorer/view-header";
@@ -48,6 +48,7 @@ import { MigrationHistory } from "./migration-history";
 import { MigrationsFooter, type MigrationsPane } from "./migrations-footer";
 import { MigrationDropZone, useMigrationImport, type FolderDrop } from "./migration-import";
 import { MigrationNameDialog } from "./migration-name-dialog";
+import { MigrationNoteDialog } from "./note-dialog";
 import { MigrationRow, StatusMark } from "./migration-row";
 import { MigrationRunDialog, type RunProgress } from "./run-dialog";
 import { useRepo } from "./use-repo";
@@ -65,6 +66,7 @@ export function MigrationDetail({ setId }: { setId: string }) {
   const { connection, tables } = useExplorerContext();
   const addFiles = useMigrations((state) => state.addFiles);
   const renameSet = useMigrations((state) => state.renameSet);
+  const setNote = useMigrations((state) => state.setNote);
   const removeSet = useMigrations((state) => state.removeSet);
   const removeStep = useMigrations((state) => state.removeStep);
   const recordRun = useMigrations((state) => state.record);
@@ -83,7 +85,6 @@ export function MigrationDetail({ setId }: { setId: string }) {
   const partners = useSharedLayoutPartners(connection.id);
   const setDraft = useQueries((state) => state.setDraft);
   const goToConnection = useGoToConnection();
-  const clearActiveSaved = useQueries((state) => state.setActiveSaved);
 
   const [pane, setPane] = useState<MigrationsPane>("migrations");
   const [expanded, setExpanded] = useState<string[]>([]);
@@ -95,6 +96,7 @@ export function MigrationDetail({ setId }: { setId: string }) {
   const [revertFor, setRevertFor] = useState<string | null>(null);
   const [editingLedger, setEditingLedger] = useState(false);
   const [renaming, setRenaming] = useState(false);
+  const [editingNote, setEditingNote] = useState(false);
   const revertInputRef = useRef<HTMLInputElement>(null);
   const stopRef = useRef(false);
 
@@ -289,7 +291,6 @@ export function MigrationDetail({ setId }: { setId: string }) {
 
   function openInEditor(sql: string) {
     setDraft(connection.id, sql);
-    clearActiveSaved(connection.id, null);
     router.push(`/${encodeURIComponent(connection.id)}/query`);
   }
 
@@ -304,6 +305,17 @@ export function MigrationDetail({ setId }: { setId: string }) {
 
   function renameActiveSet(name: string) {
     if (activeSet) renameSet(activeSet.id, name);
+  }
+
+  /** A folder's note is written beside its SQL, so it is committed with it; an import keeps its own. */
+  async function saveNote(note: string) {
+    if (!activeSet) return;
+    if (activeSet.source) {
+      await api.note(activeSet.source.root, activeSet.source.path, note);
+      repo.reload();
+    } else {
+      setNote(activeSet.id, note);
+    }
   }
 
   function forgetActiveSet() {
@@ -428,6 +440,10 @@ export function MigrationDetail({ setId }: { setId: string }) {
                 Revert everything on {connection.name}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => setEditingNote(true)}>
+                <NoteIcon />
+                {activeSet.note ? "Edit note" : "Add note"}
+              </DropdownMenuItem>
               {!fromDisk && (
                 <DropdownMenuItem onClick={() => setRenaming(true)}>
                   <PencilIcon />
@@ -472,6 +488,14 @@ export function MigrationDetail({ setId }: { setId: string }) {
         <p className="border-b bg-destructive/5 px-4 py-1.5 text-xs text-destructive">
           {pageImport.error}
         </p>
+      )}
+
+      {pane === "migrations" && activeSet.note && (
+        <NoteBlock
+          note={activeSet.note}
+          notePath={activeSet.source?.notePath ?? null}
+          onEdit={() => setEditingNote(true)}
+        />
       )}
 
       <div className="relative flex min-h-0 flex-1 flex-col">
@@ -606,6 +630,15 @@ export function MigrationDetail({ setId }: { setId: string }) {
         onSubmit={renameActiveSet}
       />
 
+      {editingNote && (
+        <MigrationNoteDialog
+          initial={activeSet.note ?? ""}
+          file={activeSet.source ? (activeSet.source.notePath?.split(/[\\/]/).at(-1) ?? "README.md") : null}
+          onOpenChange={setEditingNote}
+          onSave={saveNote}
+        />
+      )}
+
       {editingLedger && (
       <LedgerSchemaDialog
         schema={ledgerSchema}
@@ -630,6 +663,7 @@ export function MigrationDetail({ setId }: { setId: string }) {
           progress={progress}
           running={running}
           recordOnly={pendingRun.recordOnly ?? false}
+          note={activeSet.note}
           onRun={() => void execute()}
           onStop={() => {
             stopRef.current = true;
@@ -669,6 +703,33 @@ function Header({
       <span className="min-w-0 truncate font-medium">{name}</span>
       {children}
     </ViewHeader>
+  );
+}
+
+/** The author's note on how to run this, above the files it is about. */
+function NoteBlock({
+  note,
+  notePath,
+  onEdit,
+}: {
+  note: string;
+  /** The file it was read from, for a migration in a folder. */
+  notePath: string | null;
+  onEdit: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      title={notePath ? `${notePath} · click to edit` : "Click to edit"}
+      onClick={onEdit}
+      className="group flex w-full cursor-pointer items-start gap-2 border-b px-4 py-2.5 text-left text-xs outline-none hover:bg-muted/30 focus-visible:bg-muted/30"
+    >
+      <NoteIcon className="mt-px size-3.5 shrink-0 text-muted-foreground" />
+      <span className="max-h-40 min-w-0 flex-1 overflow-y-auto whitespace-pre-wrap break-words">
+        {note}
+      </span>
+      <PencilIcon className="mt-px size-3.5 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100" />
+    </button>
   );
 }
 
