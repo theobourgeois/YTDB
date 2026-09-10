@@ -50,13 +50,42 @@ environment, see where every environment stands on it, or revert it. The list sh
 a glance — `dev 8/8`, `prod 0/8` — so a migration that has been through dev but not prod is obvious
 without opening anything.
 
-Applying a migration stores its SQL — and its revert SQL — in the ledger row alongside it. So a
-migration belongs to the databases, not to the browser that happened to import the folder. Open YTDB
-somewhere else and the ones your databases have run are listed with how far each environment got;
-**Open** rebuilds one from the ledger, ready to apply to the environment that is behind, or revert.
-No folder needed, and none of it has to be in the same place twice.
+### Read straight from your repo
 
-Rows written before YTDB stored SQL are still listed, but can only be rebuilt by dropping the folder.
+Choose **Read from a folder** and give it the path to your project's migrations directory, say
+`~/code/app/src/lib/supabase/migrations`. Every folder inside it that holds `.sql` files is one
+migration, named after the folder — `key-claims/apply/0001_create_keys.sql` is version 0001 of
+`key-claims`, with `key-claims/revert/0001_create_keys.sql` as its undo. A flat folder of `.sql`
+files is one migration named after the folder itself.
+
+Nothing is imported or remembered. The folder is read off the disk by the YTDB running on your
+machine every time the page opens, so the list is whatever is on the branch you have checked out,
+and the header says which branch that is. Switch branches and the list follows. The path is kept per
+set of linked connections, so dev and prod of one project read the same folder and another project
+reads its own.
+
+### The ledger
+
+Applying a migration records it in a small table the database keeps for itself,
+`maintenance.ytdb_migrations`, created on the first apply. A row is keyed by the migration's set and
+its version together, since every folder numbers its files from 0001. The SQL that ran — and its
+revert SQL — is stored in the row alongside it, so a migration belongs to the databases and not to
+the browser that happened to have the folder. Open YTDB somewhere else and the ones your databases
+have run are listed with how far each environment got; **Open** rebuilds one from the ledger, ready
+to apply to the environment that is behind, or revert.
+
+A ledger written by an earlier YTDB, keyed on version alone, is moved onto the new key the next time
+anything is written to it. Rows written before YTDB stored SQL are still listed, but can only be
+rebuilt from the folder.
+
+### Adopting a database that was migrated by hand
+
+A database that has been running for a while has already had most of the folder applied to it,
+just not through YTDB, so its ledger is empty and everything shows as pending. **Mark everything as
+applied** in the list's menu writes a ledger row for every migration that environment has no row
+for — in one transaction, without running any SQL, and never touching a row that is already there.
+Do it once per environment from a checkout of your main branch, and from then on only what is
+genuinely new shows as pending.
 
 Drop in whatever you have to start one. A flat folder of migrations is enough:
 

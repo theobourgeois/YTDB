@@ -58,14 +58,69 @@ export type MigrationSet = {
   steps: MigrationStep[];
   /** Files that were read but could not be placed, with the reason. */
   skipped: string[];
+  /**
+   * Where on disk this set was read from, when it came from a migrations folder
+   * rather than an import. Such a set is re-read on every visit and never edited here.
+   */
+  source?: { root: string; path: string };
 };
 
-/** One row of a database's ledger table: a migration that database has run. */
+/** Prefix of the id a folder-backed set gets, so a page can tell it from an imported one. */
+export const REPO_SET_ID_PREFIX = "repo:";
+
+export function repoSetId(name: string): string {
+  return `${REPO_SET_ID_PREFIX}${name}`;
+}
+
+export function isRepoSetId(id: string): boolean {
+  return id.startsWith(REPO_SET_ID_PREFIX);
+}
+
+/** What the local bridge found in a migrations folder. */
+export type RepoRead = {
+  /** The folder as resolved on disk, `~` expanded. */
+  root: string;
+  sets: MigrationSet[];
+  /** Files at the root that were read but could not be placed. */
+  skipped: string[];
+  /** The checkout the folder sits in, when it is inside a git repository. */
+  git: { branch: string; commit: string; dirty: boolean } | null;
+};
+
+/** One ledger row to write without running anything, when adopting a folder wholesale. */
+export type AdoptEntry = {
+  setName: string;
+  version: string;
+  name: string;
+  checksum: string;
+  applySql: string;
+  revertSql?: string;
+};
+
+export type AdoptRequest = {
+  ledgerSchema: string;
+  entries: AdoptEntry[];
+};
+
+export type AdoptResult = {
+  /** Rows written. Rows already in the ledger are left as they were and not counted. */
+  recorded: number;
+  /** Rows that were already there. */
+  existing: number;
+};
+
+/**
+ * One row of a database's ledger table: a migration that database has run.
+ *
+ * A row is identified by its set and its version together: every folder numbers
+ * its files from 0001, so the version alone says nothing about which migration ran.
+ */
 export type LedgerEntry = {
   version: string;
   name: string;
   checksum: string;
-  setName: string | null;
+  /** The set this row belongs to. Empty for rows written before sets were part of the key. */
+  setName: string;
   appliedAt: string;
   durationMs: number | null;
   appliedBy: string | null;

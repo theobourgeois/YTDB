@@ -16,6 +16,8 @@ export const API_ACTIONS = [
   "schema",
   "ledger",
   "migrate",
+  "adopt",
+  "repo",
 ] as const;
 
 /** Actions that only ever happen in the browser, reported by the client. */
@@ -27,6 +29,7 @@ export const UI_ACTIONS = [
   "config.import",
   "migrations.import",
   "migrations.remove",
+  "migrations.folder",
 ] as const;
 
 export type ApiAction = (typeof API_ACTIONS)[number];

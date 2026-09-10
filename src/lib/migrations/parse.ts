@@ -45,14 +45,16 @@ function stripExtension(name: string): string {
 
 /**
  * Splits a filename into the part that orders it and the part that names it:
- * `0007_add_orders` → `0007` + `add orders`, `V2__seed` → `2` + `seed`.
+ * `0007_add_orders` → `0007` + `add orders`, `V2__seed` → `2` + `seed`,
+ * `2026-07-22_video_status` → `2026-07-22` + `video status`. A dash or dot
+ * between digits stays in the version, so a date is one version and not three.
  */
 function splitVersion(stem: string): { version: string; name: string } {
   const flyway = /^[Vv](\d+(?:[._]\d+)*)__(.*)$/.exec(stem);
   if (flyway) {
     return { version: flyway[1].replace(/_/g, "."), name: humanize(flyway[2]) };
   }
-  const numeric = /^(\d+)(?:[-_.\s]+(.*))?$/.exec(stem);
+  const numeric = /^(\d+(?:[-.]\d+)*)(?:[-_.\s]+(.*))?$/.exec(stem);
   if (numeric) {
     return { version: numeric[1], name: humanize(numeric[2] ?? "") };
   }
@@ -152,6 +154,7 @@ export function parseMigrationFiles(files: ImportedFile[]): ParsedFiles {
     return parsed;
   }
 
+  const readable: { file: ImportedFile; direction: "apply" | "revert"; stem: string }[] = [];
   for (const file of sqlFiles) {
     if (file.text.length > MAX_MIGRATION_FILE_BYTES) {
       parsed.skipped.push(`${file.path} — over ${formatBytes(MAX_MIGRATION_FILE_BYTES)}`);
@@ -165,8 +168,25 @@ export function parseMigrationFiles(files: ImportedFile[]): ParsedFiles {
       parsed.skipped.push(`${file.path} — empty`);
       continue;
     }
-    const { direction, stem } = classify(file.path);
-    const { version, name } = splitVersion(stem);
+    readable.push({ file, ...classify(file.path) });
+  }
+
+  // A folder where two forward migrations share a numeric prefix — two files
+  // dated the same day, say — is not numbered at all, so the whole filename
+  // has to be the version for every file in it, or one of the two would be lost.
+  const prefixes = new Set<string>();
+  let collided = false;
+  for (const { direction, stem } of readable) {
+    if (direction !== "apply") continue;
+    const { version } = splitVersion(stem);
+    if (prefixes.has(version)) collided = true;
+    prefixes.add(version);
+  }
+
+  for (const { file, direction, stem } of readable) {
+    const { version, name } = collided
+      ? { version: stem, name: humanize(stem) }
+      : splitVersion(stem);
     const target = direction === "apply" ? parsed.applies : parsed.reverts;
     const existing = target.get(version);
     if (existing) {

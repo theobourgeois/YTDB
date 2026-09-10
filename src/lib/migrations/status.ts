@@ -19,6 +19,19 @@ export type RunPlan = {
 
 const EMPTY_PLAN: RunPlan = { steps: [], blockedBy: null };
 
+/**
+ * The part of a ledger that is about one set. Every folder numbers its files
+ * from 0001, so a row only means something next to the set it was written for.
+ * Everything below that takes a ledger expects one already scoped this way.
+ */
+export function scopeLedger(
+  ledger: LedgerResult | null | undefined,
+  setName: string,
+): LedgerResult | null {
+  if (!ledger) return null;
+  return { ...ledger, entries: ledger.entries.filter((entry) => entry.setName === setName) };
+}
+
 function index(ledger: LedgerResult | null | undefined): Map<string, LedgerEntry> {
   const entries = new Map<string, LedgerEntry>();
   for (const entry of ledger?.entries ?? []) entries.set(entry.version, entry);
@@ -46,23 +59,25 @@ export function stepStatus(
   return "applied";
 }
 
+/** Takes the whole ledger and scopes it to the set itself. */
 export function summarize(
   set: MigrationSet | null,
   ledger: LedgerResult | null | undefined,
 ): SetSummary {
   const summary: SetSummary = { total: set?.steps.length ?? 0, applied: 0, drifted: 0, pending: 0, foreign: 0 };
   if (!set) return summary;
+  const scoped = scopeLedger(ledger, set.name);
   for (const step of set.steps) {
-    const status = stepStatus(step, ledger);
+    const status = stepStatus(step, scoped);
     if (status === "applied") summary.applied += 1;
     else if (status === "drifted") summary.drifted += 1;
     else if (status === "pending") summary.pending += 1;
   }
-  summary.foreign = foreignEntries(set, ledger).length;
+  summary.foreign = foreignEntries(set, scoped).length;
   return summary;
 }
 
-/** Ledger rows this set has no file for. Worth surfacing: the folder is out of date. */
+/** Rows of this set's ledger that the folder has no file for. Worth surfacing: the folder is out of date. */
 export function foreignEntries(
   set: MigrationSet | null,
   ledger: LedgerResult | null | undefined,
@@ -154,7 +169,7 @@ export function discoverMigrations(
 
   for (const source of sources) {
     for (const entry of source.ledger?.entries ?? []) {
-      const name = entry.setName?.trim();
+      const name = entry.setName.trim();
       if (!name || known.has(name.toLowerCase())) continue;
       const byConnection = groups.get(name) ?? new Map<string, Set<string>>();
       const versions = byConnection.get(source.connection.id) ?? new Set<string>();

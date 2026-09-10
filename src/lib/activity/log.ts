@@ -144,6 +144,19 @@ export function summarizeResult(
         statements: value?.statements ?? 0,
         durationMs: value?.durationMs ?? null,
       };
+    case "adopt":
+      return { recorded: value?.recorded ?? 0, existing: value?.existing ?? 0 };
+    case "repo":
+      return {
+        sets: rowCount(value?.sets),
+        migrations: Array.isArray(value?.sets)
+          ? (value.sets as Record<string, unknown>[]).reduce(
+              (total, set) => total + rowCount(set.steps),
+              0,
+            )
+          : 0,
+        branch: (value?.git as Record<string, unknown> | null)?.branch ?? null,
+      };
     case "schema":
       return {
         relations: rowCount(value?.relations),

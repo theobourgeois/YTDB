@@ -5,7 +5,10 @@ import { quoteIdent } from "../identifiers";
 import { planTransaction } from "../migrations/sql";
 import {
   DEFAULT_LEDGER_SCHEMA,
+  LEDGER_TABLE,
   ledgerTable,
+  type AdoptRequest,
+  type AdoptResult,
   type LedgerEntry,
   type LedgerResult,
   type MigrationRequest,
@@ -25,26 +28,62 @@ type LedgerRow = {
   revert_sql?: string | null;
 };
 
+/**
+ * A row is one migration in one set. Every folder numbers its files from 0001,
+ * so the version on its own is not a key; the set name is part of it.
+ */
 function createLedgerSql(schema: string): string {
   return `
 CREATE TABLE IF NOT EXISTS ${ledgerTable(schema)} (
-  version     text PRIMARY KEY,
+  version     text NOT NULL,
   name        text NOT NULL DEFAULT '',
   checksum    text NOT NULL DEFAULT '',
-  set_name    text,
+  set_name    text NOT NULL DEFAULT '',
   applied_at  timestamptz NOT NULL DEFAULT now(),
   duration_ms integer,
   applied_by  text,
   apply_sql   text,
-  revert_sql  text
+  revert_sql  text,
+  PRIMARY KEY (set_name, version)
 )`;
 }
 
-/** Brings a ledger written by an earlier version up to the current shape. */
+/** Columns added since the first ledger shape; harmless on a current one. */
 function alterLedgerSql(schema: string): string[] {
   return [
     `ALTER TABLE ${ledgerTable(schema)} ADD COLUMN IF NOT EXISTS apply_sql text`,
     `ALTER TABLE ${ledgerTable(schema)} ADD COLUMN IF NOT EXISTS revert_sql text`,
+  ];
+}
+
+/** The columns of the ledger's primary key, in order. */
+function primaryKeyColumnsSql(): string {
+  return `
+SELECT a.attname AS column
+FROM pg_constraint c
+JOIN pg_namespace n ON n.oid = c.connamespace
+JOIN pg_class t ON t.oid = c.conrelid
+JOIN unnest(c.conkey) WITH ORDINALITY AS k(attnum, ord) ON true
+JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = k.attnum
+WHERE c.contype = 'p' AND n.nspname = $1 AND t.relname = $2
+ORDER BY k.ord`;
+}
+
+/**
+ * Moves a ledger keyed on version alone onto the (set_name, version) key.
+ *
+ * Rows an older version wrote always carried their set name, so nothing is lost;
+ * rows with no set name at all are given the empty one so the column can be part
+ * of the key. Runs inside the caller's session before anything is written.
+ */
+function rekeyLedgerSql(schema: string): string[] {
+  const table = ledgerTable(schema);
+  return [
+    `UPDATE ${table} SET set_name = '' WHERE set_name IS NULL`,
+    `ALTER TABLE ${table} ALTER COLUMN set_name SET DEFAULT ''`,
+    `ALTER TABLE ${table} ALTER COLUMN set_name SET NOT NULL`,
+    `ALTER TABLE ${table} DROP CONSTRAINT IF EXISTS ${quoteIdent(`${LEDGER_TABLE}_pkey`)}`,
+    `ALTER TABLE ${table} ADD PRIMARY KEY (set_name, version)`,
   ];
 }
 
@@ -57,18 +96,21 @@ function selectLedgerSql(schema: string, withSql: boolean): string {
   return `
 SELECT version, name, checksum, set_name, applied_at, duration_ms, applied_by${sql}
 FROM ${ledgerTable(schema)}
-ORDER BY version`;
+ORDER BY set_name, version`;
 }
 
+/**
+ * Re-applying a migration that is already recorded refreshes its row: the ledger
+ * says what ran last, and an edited file run again is a new run of that version.
+ */
 function recordApplySql(schema: string): string {
   return `
 INSERT INTO ${ledgerTable(schema)}
   (version, name, checksum, set_name, duration_ms, applied_by, apply_sql, revert_sql)
 VALUES ($1, $2, $3, $4, $5, current_user, $6, $7)
-ON CONFLICT (version) DO UPDATE SET
+ON CONFLICT (set_name, version) DO UPDATE SET
   name = EXCLUDED.name,
   checksum = EXCLUDED.checksum,
-  set_name = EXCLUDED.set_name,
   applied_at = now(),
   duration_ms = EXCLUDED.duration_ms,
   applied_by = current_user,
@@ -77,8 +119,20 @@ ON CONFLICT (version) DO UPDATE SET
 RETURNING applied_at`;
 }
 
+/**
+ * Adopting never overwrites: a row that is already there records a real run,
+ * which says more than a mark ever could.
+ */
+function adoptSql(schema: string): string {
+  return `
+INSERT INTO ${ledgerTable(schema)}
+  (version, name, checksum, set_name, duration_ms, applied_by, apply_sql, revert_sql)
+VALUES ($1, $2, $3, $4, 0, current_user, $5, $6)
+ON CONFLICT (set_name, version) DO NOTHING`;
+}
+
 function forgetRevertSql(schema: string): string {
-  return `DELETE FROM ${ledgerTable(schema)} WHERE version = $1`;
+  return `DELETE FROM ${ledgerTable(schema)} WHERE set_name = $1 AND version = $2`;
 }
 
 function toEntry(row: LedgerRow): LedgerEntry {
@@ -86,7 +140,7 @@ function toEntry(row: LedgerRow): LedgerEntry {
     version: row.version,
     name: row.name ?? "",
     checksum: row.checksum ?? "",
-    setName: row.set_name,
+    setName: row.set_name ?? "",
     appliedAt: row.applied_at instanceof Date ? row.applied_at.toISOString() : String(row.applied_at),
     durationMs: row.duration_ms,
     appliedBy: row.applied_by,
@@ -217,12 +271,20 @@ function validate(request: MigrationRequest): void {
   if (sql.includes("\0")) throw new Error(`Migration ${request.version} contains a null character`);
 }
 
-/** Creates the ledger's schema and table, on the first write to a database. */
+/**
+ * Creates the ledger's schema and table on the first write to a database, and
+ * brings a ledger written by an earlier version up to the current shape.
+ */
 async function ensureLedger(client: PoolClient, schema: string): Promise<void> {
   try {
     await client.query(`CREATE SCHEMA IF NOT EXISTS ${quoteIdent(schema)}`);
     await client.query(createLedgerSql(schema));
     for (const statement of alterLedgerSql(schema)) await client.query(statement);
+    const key = await client.query<{ column: string }>(primaryKeyColumnsSql(), [schema, LEDGER_TABLE]);
+    const columns = key.rows.map((row) => row.column);
+    if (columns.length !== 2 || columns[0] !== "set_name" || columns[1] !== "version") {
+      for (const statement of rekeyLedgerSql(schema)) await client.query(statement);
+    }
   } catch (error) {
     explainLedgerFailure(error, schema);
   }
@@ -289,7 +351,7 @@ async function record(
   durationMs: number,
 ): Promise<string | null> {
   if (request.direction === "revert") {
-    await client.query(forgetRevertSql(schema), [request.version]);
+    await client.query(forgetRevertSql(schema), [request.setName, request.version]);
     return null;
   }
   const result = await client.query<{ applied_at: Date | string }>(recordApplySql(schema), [
@@ -304,6 +366,49 @@ async function record(
   const appliedAt = result.rows[0]?.applied_at;
   if (!appliedAt) return null;
   return appliedAt instanceof Date ? appliedAt.toISOString() : String(appliedAt);
+}
+
+/**
+ * Writes many ledger rows at once without running any SQL, all in one transaction,
+ * for a database whose schema was migrated by hand before the ledger existed.
+ */
+export async function adoptMigrations(
+  connectionString: string,
+  request: AdoptRequest,
+): Promise<AdoptResult> {
+  for (const entry of request.entries) {
+    if (!entry.version.trim()) throw new Error("Missing migration version");
+    if (!entry.setName.trim()) throw new Error(`Migration ${entry.version} has no set name`);
+  }
+  const pool = getPool(connectionString, "migration");
+  const { schema } = await resolveLedgerSchema(pool, request.ledgerSchema);
+  const client = await pool.connect();
+  try {
+    await client.query(`SET statement_timeout TO ${MIGRATION_STATEMENT_TIMEOUT_MS}`);
+    await ensureLedger(client, schema);
+    await client.query("BEGIN");
+    let recorded = 0;
+    try {
+      for (const entry of request.entries) {
+        const result = await client.query(adoptSql(schema), [
+          entry.version,
+          entry.name,
+          entry.checksum,
+          entry.setName,
+          entry.applySql || null,
+          entry.revertSql ?? null,
+        ]);
+        recorded += result.rowCount ?? 0;
+      }
+      await client.query("COMMIT");
+    } catch (error) {
+      await rollback(client);
+      throw error;
+    }
+    return { recorded, existing: request.entries.length - recorded };
+  } finally {
+    client.release(true);
+  }
 }
 
 /** Creates the ledger without running anything, so a database can be prepared up front. */

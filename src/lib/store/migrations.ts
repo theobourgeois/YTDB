@@ -9,6 +9,7 @@ import {
   type MigrationSet,
 } from "../migrations/types";
 import { randomId } from "../utils";
+import { useConnections } from "./connections";
 
 const STORAGE_KEY = "ytdb:migrations";
 
@@ -43,6 +44,14 @@ type MigrationsState = {
    */
   ledgerSchema: string;
   setLedgerSchema: (schema: string) => void;
+  /**
+   * The migrations folder each set of environments reads from, keyed by the
+   * layout group the connections share (or the connection id when they share
+   * none). Dev and prod of one project point at the same folder; another project
+   * points at its own.
+   */
+  repoRoots: Record<string, string>;
+  setRepoRoot: (scope: string, root: string | null) => void;
   /** Starts an empty set, ready for files to be added to it. */
   createSet: (name: string) => string;
   /** Folds files into a set, adding what is new and updating what is not. */
@@ -67,6 +76,16 @@ export const useMigrations = create<MigrationsState>()(
         if (!isLedgerSchema(schema)) return;
         set({ ledgerSchema: schema });
       },
+      repoRoots: {},
+      setRepoRoot: (scope, root) =>
+        set((state) => {
+          const repoRoots = { ...state.repoRoots };
+          const clean = root?.trim();
+          if (clean) repoRoots[scope] = clean;
+          else delete repoRoots[scope];
+          logUiAction("migrations.folder", { set: Boolean(clean) });
+          return { repoRoots };
+        }),
       createSet: (name) => {
         const created = emptySet(name);
         set((state) => ({ sets: [...state.sets, created] }));
@@ -143,4 +162,13 @@ export const useMigrations = create<MigrationsState>()(
 
 export function useMigrationSet(setId: string): MigrationSet | null {
   return useMigrations((state) => state.sets.find((candidate) => candidate.id === setId) ?? null);
+}
+
+/** The folder this connection's environments read migrations from, if one is set. */
+export function useRepoRoot(connectionId: string): { scope: string; root: string | null } {
+  const scope = useConnections(
+    (state) => state.connections.find((item) => item.id === connectionId)?.layoutGroup ?? connectionId,
+  );
+  const root = useMigrations((state) => state.repoRoots[scope] ?? null);
+  return { scope, root };
 }

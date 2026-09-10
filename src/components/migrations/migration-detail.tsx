@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useRef, useState } from "react";
-import { ClipboardCheckIcon, FolderUploadIcon, StackIcon, MoreIcon, PencilIcon, PlayIcon, RefreshIcon, TableIcon, WarningIcon, UndoIcon } from "@/components/icons";
+import { ClipboardCheckIcon, FolderOpenIcon, FolderUploadIcon, StackIcon, MoreIcon, PencilIcon, PlayIcon, RefreshIcon, TableIcon, WarningIcon, UndoIcon } from "@/components/icons";
 import { useExplorerContext } from "@/components/explorer/explorer-provider";
 import { useGoToConnection } from "@/components/explorer/use-switch-connection";
 import { ViewHeader } from "@/components/explorer/view-header";
@@ -24,12 +24,14 @@ import {
   ledgerEntry,
   newestApplied,
   revertPlan,
+  scopeLedger,
   stepStatus,
   summarize,
   type RunPlan,
 } from "@/lib/migrations/status";
 import {
   LEDGER_TABLE,
+  isRepoSetId,
   type LedgerResult,
   type MigrationDirection,
   type MigrationStep,
@@ -37,7 +39,7 @@ import {
 import { useSharedLayoutPartners, useExplorer } from "@/lib/store/explorer";
 import type { MergeReport } from "@/lib/migrations/parse";
 import { buildHistory } from "@/lib/migrations/history";
-import { useMigrationSet, useMigrations } from "@/lib/store/migrations";
+import { useMigrationSet, useMigrations, useRepoRoot } from "@/lib/store/migrations";
 import { useQueries } from "@/lib/store/queries";
 import { cn } from "@/lib/utils";
 import { EnvironmentHeader, TargetPicker, type Environment } from "./environment-header";
@@ -48,6 +50,7 @@ import { MigrationDropZone, useMigrationImport, type FolderDrop } from "./migrat
 import { MigrationNameDialog } from "./migration-name-dialog";
 import { MigrationRow, StatusMark } from "./migration-row";
 import { MigrationRunDialog, type RunProgress } from "./run-dialog";
+import { useRepo } from "./use-repo";
 
 type LedgerRead = { ledger: LedgerResult | null; error: string | null };
 
@@ -67,7 +70,16 @@ export function MigrationDetail({ setId }: { setId: string }) {
   const recordRun = useMigrations((state) => state.record);
   const ledgerSchema = useMigrations((state) => state.ledgerSchema);
   const setLedgerSchema = useMigrations((state) => state.setLedgerSchema);
-  const activeSet = useMigrationSet(setId);
+  const importedSet = useMigrationSet(setId);
+  // A set from the folder is re-read from disk here, the same as on the index,
+  // so this page never shows a version of the files that is no longer there.
+  const { root } = useRepoRoot(connection.id);
+  const repo = useRepo(isRepoSetId(setId) ? root : null);
+  const activeSet = isRepoSetId(setId)
+    ? (repo.data?.sets.find((candidate) => candidate.id === setId) ?? null)
+    : importedSet;
+  /** True when the files live on disk and are only ever read here, never edited. */
+  const fromDisk = Boolean(activeSet?.source);
   const partners = useSharedLayoutPartners(connection.id);
   const setDraft = useQueries((state) => state.setDraft);
   const goToConnection = useGoToConnection();
@@ -116,20 +128,27 @@ export function MigrationDetail({ setId }: { setId: string }) {
   );
 
   const current = ledgers.data?.[connection.id] ?? null;
-  const currentLedger = current?.ledger ?? null;
+  // Every folder numbers its files from 0001, so a ledger only means something
+  // once it is narrowed to this set's rows.
+  const setName = activeSet?.name ?? "";
+  const currentLedger = useMemo(
+    () => scopeLedger(current?.ledger, setName),
+    [current?.ledger, setName],
+  );
 
   const environments = useMemo(
     (): Environment[] =>
       environmentConnections.map((item) => {
         const read = ledgers.data?.[item.id] ?? null;
+        const ledger = scopeLedger(read?.ledger, setName);
         return {
           connection: item,
-          ledger: read?.ledger ?? null,
+          ledger,
           error: read?.error ?? null,
-          summary: summarize(activeSet, read?.ledger ?? null),
+          summary: summarize(activeSet, ledger),
         };
       }),
-    [environmentConnections, ledgers.data, activeSet],
+    [environmentConnections, ledgers.data, activeSet, setName],
   );
 
   const indexHref = `/${encodeURIComponent(connection.id)}/migrations`;
@@ -140,10 +159,8 @@ export function MigrationDetail({ setId }: { setId: string }) {
       environments.map((item) => ({ connection: item.connection, ledger: item.ledger })),
       runRecords,
     );
-    const versions = new Set(activeSet?.steps.map((step) => step.version) ?? []);
-    const name = activeSet?.name;
-    return all.filter((event) => versions.has(event.version) || event.setName === name);
-  }, [environments, runRecords, activeSet]);
+    return all.filter((event) => event.setName === setName);
+  }, [environments, runRecords, setName]);
 
   const summary = summarize(activeSet, currentLedger);
   const foreign = useMemo(() => foreignEntries(activeSet, currentLedger), [activeSet, currentLedger]);
@@ -265,6 +282,11 @@ export function MigrationDetail({ setId }: { setId: string }) {
     tables.reload();
   }
 
+  function reload() {
+    ledgers.reload();
+    if (fromDisk) repo.reload();
+  }
+
   function openInEditor(sql: string) {
     setDraft(connection.id, sql);
     clearActiveSaved(connection.id, null);
@@ -311,14 +333,27 @@ export function MigrationDetail({ setId }: { setId: string }) {
   }
 
   if (!activeSet) {
+    const reading = isRepoSetId(setId) && repo.loading;
     return (
       <div className="flex min-h-0 flex-1 flex-col">
-        <Header name="Not found" />
+        <Header name={reading ? "Reading…" : "Not found"} />
         <div className="flex flex-1 flex-col items-center justify-center gap-2 text-muted-foreground">
-          <p className="text-sm">That migration is no longer here.</p>
-          <Link href={indexHref} className="text-foreground underline underline-offset-4">
-            All migrations
-          </Link>
+          {reading ? (
+            <p className="text-sm">Reading the folder…</p>
+          ) : (
+            <>
+              <p className="text-sm">
+                {repo.error
+                  ? repo.error
+                  : isRepoSetId(setId)
+                    ? "That migration is not in the folder on the branch you have checked out."
+                    : "That migration is no longer here."}
+              </p>
+              <Link href={indexHref} className="text-foreground underline underline-offset-4">
+                All migrations
+              </Link>
+            </>
+          )}
         </div>
       </div>
     );
@@ -326,18 +361,27 @@ export function MigrationDetail({ setId }: { setId: string }) {
 
   const applyAll = applyPlan(activeSet, currentLedger);
   const revertAll = revertPlan(activeSet, currentLedger);
-  const busy = running || ledgers.loading;
+  const busy = running || ledgers.loading || repo.loading;
 
   return (
     <div
       className="relative flex min-h-0 flex-1 flex-col"
       onDragOver={(event) => {
-        if (!event.dataTransfer.types.includes("Files")) return;
+        if (fromDisk || !event.dataTransfer.types.includes("Files")) return;
         event.preventDefault();
         setDragging(true);
       }}
     >
       <Header name={activeSet?.name ?? ""}>
+        {activeSet.source && (
+          <span
+            className="flex min-w-0 items-center gap-1 text-[11px] text-muted-foreground"
+            title={`Read from ${activeSet.source.path}`}
+          >
+            <FolderOpenIcon className="size-3.5 shrink-0" />
+            <span className="max-w-48 truncate font-mono">{activeSet.source.path}</span>
+          </span>
+        )}
         <TargetPicker
           environments={environments}
           targetId={connection.id}
@@ -347,17 +391,19 @@ export function MigrationDetail({ setId }: { setId: string }) {
           <Button
             size="icon-sm"
             variant="ghost"
-            disabled={ledgers.loading}
+            disabled={ledgers.loading || repo.loading}
             aria-label="Refresh"
-            title="Re-read every environment's ledger"
-            onClick={() => ledgers.reload()}
+            title={fromDisk ? "Re-read the files and every environment's ledger" : "Re-read every environment's ledger"}
+            onClick={reload}
           >
-            <RefreshIcon className={cn(ledgers.loading && "animate-spin")} />
+            <RefreshIcon className={cn((ledgers.loading || repo.loading) && "animate-spin")} />
           </Button>
-          <Button size="sm" variant="ghost" onClick={() => setDragging(true)}>
-            <FolderUploadIcon data-icon="inline-start" />
-            Import
-          </Button>
+          {!fromDisk && (
+            <Button size="sm" variant="ghost" onClick={() => setDragging(true)}>
+              <FolderUploadIcon data-icon="inline-start" />
+              Import
+            </Button>
+          )}
           <DropdownMenu>
             <DropdownMenuTrigger
               render={<Button size="icon-sm" variant="ghost" aria-label="More migration actions" />}
@@ -382,10 +428,12 @@ export function MigrationDetail({ setId }: { setId: string }) {
                 Revert everything on {connection.name}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => setRenaming(true)}>
-                <PencilIcon />
-                Rename
-              </DropdownMenuItem>
+              {!fromDisk && (
+                <DropdownMenuItem onClick={() => setRenaming(true)}>
+                  <PencilIcon />
+                  Rename
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem onClick={() => setEditingLedger(true)}>
                 <TableIcon />
                 Ledger table
@@ -393,10 +441,14 @@ export function MigrationDetail({ setId }: { setId: string }) {
                   {ledgerSchema}.{LEDGER_TABLE}
                 </span>
               </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem variant="destructive" onClick={forgetActiveSet}>
-                Forget this migration
-              </DropdownMenuItem>
+              {!fromDisk && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem variant="destructive" onClick={forgetActiveSet}>
+                    Forget this migration
+                  </DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
           <Button
@@ -444,9 +496,22 @@ export function MigrationDetail({ setId }: { setId: string }) {
             onCompare={compareWith}
           />
           <ScrollArea className={cn("min-h-0 flex-1", ledgers.loading && "opacity-70")}>
-            {(activeSet?.steps.length ?? 0) === 0 && (
+            {(activeSet?.steps.length ?? 0) === 0 && !fromDisk && (
               <div className="p-6">
                 <MigrationDropZone onFiles={onFiles} compact />
+              </div>
+            )}
+            {activeSet.skipped.length > 0 && fromDisk && (
+              <div className="border-b bg-muted/20 px-4 py-2 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1.5">
+                  <WarningIcon className="size-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                  Skipped {activeSet.skipped.length} file{activeSet.skipped.length === 1 ? "" : "s"}
+                </span>
+                <ul className="mt-1 space-y-0.5 pl-5 font-mono text-[11px]">
+                  {activeSet.skipped.map((reason) => (
+                    <li key={reason}>{reason}</li>
+                  ))}
+                </ul>
               </div>
             )}
             {(activeSet?.steps ?? []).map((step) => (
@@ -464,6 +529,7 @@ export function MigrationDetail({ setId }: { setId: string }) {
                 isNewestApplied={newest?.version === step.version}
                 expanded={expanded.includes(step.version)}
                 busy={busy}
+                editable={!fromDisk}
                 onToggle={() => toggleRow(step.version)}
                 actions={{
                   // Applying a row applies everything still pending up to it, so
@@ -489,7 +555,7 @@ export function MigrationDetail({ setId }: { setId: string }) {
           </>
         )}
 
-        {dragging && (
+        {dragging && !fromDisk && (
           <div
             className="absolute inset-0 z-20 flex items-center justify-center bg-background/85 p-6"
             onDragOver={(event) => event.preventDefault()}

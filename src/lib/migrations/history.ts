@@ -77,7 +77,7 @@ export function buildHistory(
   /** The newest thing this browser saw happen to one migration on one database. */
   const newestLocal = new Map<string, HistoryEvent>();
   for (const event of local) {
-    const key = `${event.connectionId}:${event.version}`;
+    const key = `${event.connectionId}:${event.setName ?? ""}:${event.version}`;
     const current = newestLocal.get(key);
     if (!current || event.at > current.at) newestLocal.set(key, event);
   }
@@ -86,7 +86,7 @@ export function buildHistory(
 
   for (const source of sources) {
     for (const entry of source.ledger?.entries ?? []) {
-      const key = `${source.connection.id}:${entry.version}`;
+      const key = `${source.connection.id}:${entry.setName}:${entry.version}`;
       const seen = newestLocal.get(key);
       // Already accounted for locally, so only the role is missing from it.
       if (seen && (seen.kind === "applied" || seen.kind === "marked")) {
@@ -94,7 +94,7 @@ export function buildHistory(
         continue;
       }
       events.push({
-        id: `ledger:${source.connection.id}:${entry.version}`,
+        id: `ledger:${source.connection.id}:${entry.setName}:${entry.version}`,
         connectionId: source.connection.id,
         connectionName: source.connection.name,
         version: entry.version,

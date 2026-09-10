@@ -50,6 +50,8 @@ type Props = {
   isNewestApplied: boolean;
   expanded: boolean;
   busy: boolean;
+  /** False when the files come straight from disk, so nothing here can add, replace or remove one. */
+  editable?: boolean;
   onToggle: () => void;
   actions: RowActions;
 };
@@ -88,6 +90,7 @@ export function MigrationRow({
   isNewestApplied,
   expanded,
   busy,
+  editable = true,
   onToggle,
   actions,
 }: Props) {
@@ -208,10 +211,12 @@ export function MigrationRow({
                 Mark as not applied
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={actions.onAttachRevert}>
-                <FileUploadIcon />
-                {step.revertSql ? "Replace revert file…" : "Add a revert file…"}
-              </DropdownMenuItem>
+              {editable && (
+                <DropdownMenuItem onClick={actions.onAttachRevert}>
+                  <FileUploadIcon />
+                  {step.revertSql ? "Replace revert file…" : "Add a revert file…"}
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem onClick={() => actions.onOpenInEditor(sql)}>
                 <TerminalIcon />
                 Open {pane} SQL in editor
@@ -220,10 +225,14 @@ export function MigrationRow({
                 <CopyIcon />
                 Copy {pane} SQL
               </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem variant="destructive" onClick={actions.onRemove}>
-                Remove from this set
-              </DropdownMenuItem>
+              {editable && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem variant="destructive" onClick={actions.onRemove}>
+                    Remove from this set
+                  </DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -267,10 +276,12 @@ export function MigrationRow({
           ) : (
             <div className="flex items-center gap-2 px-3 pb-3 text-xs text-muted-foreground">
               <span>No revert file, so this one cannot be undone from here.</span>
-              <Button size="xs" variant="outline" onClick={actions.onAttachRevert}>
-                <FileUploadIcon data-icon="inline-start" />
-                Add one
-              </Button>
+              {editable && (
+                <Button size="xs" variant="outline" onClick={actions.onAttachRevert}>
+                  <FileUploadIcon data-icon="inline-start" />
+                  Add one
+                </Button>
+              )}
             </div>
           )}
         </div>

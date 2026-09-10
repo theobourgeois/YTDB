@@ -1,4 +1,11 @@
-import type { LedgerResult, MigrationRequest, MigrationResult } from "./migrations/types";
+import type {
+  AdoptRequest,
+  AdoptResult,
+  LedgerResult,
+  MigrationRequest,
+  MigrationResult,
+  RepoRead,
+} from "./migrations/types";
 import type {
   CellUpdate,
   CellUpdateResult,
@@ -93,4 +100,10 @@ export const api = {
 
   migrate: (connectionUrl: string, migration: MigrationRequest, signal?: AbortSignal) =>
     post<MigrationResult>("/api/migrate", { connectionUrl, migration }, signal),
+
+  adopt: (connectionUrl: string, adopt: AdoptRequest, signal?: AbortSignal) =>
+    post<AdoptResult>("/api/adopt", { connectionUrl, adopt }, signal),
+
+  /** Reads a migrations folder from the machine the bridge runs on. */
+  repo: (root: string, signal?: AbortSignal) => post<RepoRead>("/api/repo", { root }, signal),
 };
