@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle2Icon } from "lucide-react";
+import { CircleCheckIcon } from "@/components/icons";
 import type { Cell, SqlQueryResult, SqlStatementResult } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -146,7 +146,7 @@ export function QueryResultGrid({
         <ResultTable statement={statement} />
       ) : (
         <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 p-8 text-center">
-          <CheckCircle2Icon className="size-5 text-emerald-600 dark:text-emerald-400" />
+          <CircleCheckIcon className="size-5 text-emerald-600 dark:text-emerald-400" />
           <p className="font-medium">{statement.command} completed</p>
           {rows ? <p className="text-xs text-muted-foreground">{rows} affected</p> : null}
         </div>

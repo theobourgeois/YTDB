@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDownIcon, Layers3Icon } from "lucide-react";
+import { ChevronDownIcon, StackIcon } from "@/components/icons";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -49,12 +49,12 @@ export function SchemaMultiSelect({ schemas, selected, onChange, compact = false
             allSelected ? "text-muted-foreground" : "text-foreground",
           )}
         >
-          <Layers3Icon className="size-3.5" />
+          <StackIcon className="size-3.5" />
           {!allSelected && <span>{selected.length}</span>}
         </DropdownMenuTrigger>
       ) : (
         <DropdownMenuTrigger className="group flex h-8 w-full cursor-pointer items-center gap-2 rounded-lg px-2 text-left text-[0.8rem] outline-none transition-colors hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring/60 data-open:bg-muted/60">
-          <Layers3Icon className="size-3.5 shrink-0 text-muted-foreground" />
+          <StackIcon className="size-3.5 shrink-0 text-muted-foreground" />
           <span className="min-w-0 flex-1 truncate">{label}</span>
           <ChevronDownIcon className="size-3.5 shrink-0 text-muted-foreground transition-transform group-data-open:rotate-180" />
         </DropdownMenuTrigger>

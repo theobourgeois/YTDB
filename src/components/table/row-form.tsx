@@ -2,7 +2,7 @@
 
 import { useState, type KeyboardEvent } from "react";
 import { Popover } from "@base-ui/react/popover";
-import { ClockIcon, KeyRoundIcon, SearchIcon, Undo2Icon } from "lucide-react";
+import { ClockIcon, KeyIcon, SearchIcon, UndoIcon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -190,7 +190,7 @@ export function FieldRow({
       {dirty && <span aria-hidden className="absolute inset-y-0 left-0 w-0.5 bg-primary/50" />}
       <div className="flex items-center gap-1.5">
         {column.isPrimaryKey && (
-          <KeyRoundIcon aria-label="Primary key" className="size-3 shrink-0 text-muted-foreground" />
+          <KeyIcon aria-label="Primary key" className="size-3 shrink-0 text-muted-foreground" />
         )}
         <label
           htmlFor={id}
@@ -224,7 +224,7 @@ export function FieldRow({
               aria-label={`Revert ${column.name}`}
               onClick={onRevert}
             >
-              <Undo2Icon />
+              <UndoIcon />
             </Button>
           )}
           {pickable && foreignKey && referencedTable && (

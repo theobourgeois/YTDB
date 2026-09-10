@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { Popover } from "@base-ui/react/popover";
-import { LoaderCircleIcon } from "lucide-react";
+import { SpinnerIcon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -335,7 +335,7 @@ function PopoverCellEditor({
                     className="group flex h-7 cursor-pointer items-center gap-2 rounded-md pr-2 text-sm whitespace-nowrap text-muted-foreground outline-none transition-colors hover:bg-muted/60 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60 disabled:pointer-events-none disabled:opacity-50"
                   >
                     <kbd className="flex h-6 min-w-8 items-center justify-center rounded-md border bg-muted/40 px-1.5 font-mono text-[11px] text-foreground shadow-xs">
-                      {saving ? <LoaderCircleIcon className="size-3 animate-spin" /> : "↵"}
+                      {saving ? <SpinnerIcon className="size-3 animate-spin" /> : "↵"}
                     </kbd>
                     Save changes
                   </button>

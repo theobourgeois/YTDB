@@ -3,8 +3,9 @@
 import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { PlusIcon } from "lucide-react";
+import { PlusIcon } from "@/components/icons";
 import { useExplorerContext } from "@/components/explorer/explorer-provider";
+import { ViewHeader } from "@/components/explorer/view-header";
 import { SqlSource } from "@/components/sql/sql-source";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -178,7 +179,7 @@ export function TableView({ table }: { table: TableRef }) {
 
   return (
     <>
-      <header className="flex h-11 items-center gap-2 border-b px-4">
+      <ViewHeader>
         <span className="truncate text-muted-foreground">{table.schema}</span>
         <span className="text-muted-foreground/50">/</span>
         <span className="truncate font-medium">{table.name}</span>
@@ -215,7 +216,7 @@ export function TableView({ table }: { table: TableRef }) {
             </>
           ) : null}
         </div>
-      </header>
+      </ViewHeader>
 
       {pane === "data" ? (
         <FilterBar

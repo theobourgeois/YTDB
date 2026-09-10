@@ -1,7 +1,7 @@
 "use client";
 
 import type { MouseEvent as ReactMouseEvent } from "react";
-import { Link2Icon } from "lucide-react";
+import { LinkIcon } from "@/components/icons";
 import type { Cell } from "@/lib/types";
 import { HighlightMatch } from "./highlight-match";
 
@@ -26,7 +26,7 @@ export function FkCellValue({ value, label, referenced, query = "", onOpen }: Pr
       onClick={onOpen}
       className="inline-flex min-w-0 max-w-full cursor-pointer items-center gap-1 text-left outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/60"
     >
-      <Link2Icon className="size-3 shrink-0 text-muted-foreground/70" />
+      <LinkIcon className="size-3 shrink-0 text-muted-foreground/70" />
       {showLabel && label !== null ? (
         <>
           <span className="truncate underline decoration-foreground/20 underline-offset-2">

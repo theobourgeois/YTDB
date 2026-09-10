@@ -8,16 +8,7 @@ import {
   type DragEvent as ReactDragEvent,
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
-import {
-  BookmarkIcon,
-  ChevronRightIcon,
-  CopyIcon,
-  FolderIcon,
-  FolderInputIcon,
-  MoreHorizontalIcon,
-  PencilLineIcon,
-  Trash2Icon,
-} from "lucide-react";
+import { BookmarkFilledIcon, BookmarkIcon, ChevronRightIcon, CopyIcon, FolderIcon, FolderImportIcon, MoreIcon, PencilLineIcon, TrashIcon } from "@/components/icons";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -118,7 +109,7 @@ function RowMenuButton({ label }: { label: string }) {
       onClick={(event) => event.stopPropagation()}
       className="mr-0.5 flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground opacity-0 outline-none transition-[color,background-color,opacity] hover:bg-foreground/10 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:opacity-100 group-hover/row:opacity-100 data-open:bg-foreground/10 data-open:text-foreground data-open:opacity-100"
     >
-      <MoreHorizontalIcon className="size-3.5" />
+      <MoreIcon className="size-3.5" />
     </DropdownMenuTrigger>
   );
 }
@@ -184,12 +175,11 @@ function QueryRow({
           aria-current={active ? "true" : undefined}
           className="flex h-full min-w-0 flex-1 cursor-pointer items-center gap-1.5 rounded-md pl-1.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
         >
-          <BookmarkIcon
-            className={cn(
-              "size-3.5 shrink-0 text-muted-foreground",
-              active && "fill-current text-foreground",
-            )}
-          />
+          {active ? (
+            <BookmarkFilledIcon className="size-3.5 shrink-0 text-foreground" />
+          ) : (
+            <BookmarkIcon className="size-3.5 shrink-0 text-muted-foreground" />
+          )}
           <span className="truncate">{query.name}</span>
           {active && dirty && (
             <span
@@ -222,7 +212,7 @@ function QueryRow({
             </DropdownMenuItem>
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>
-                <FolderInputIcon />
+                <FolderImportIcon />
                 Move to
               </DropdownMenuSubTrigger>
               <DropdownMenuSubContent className="max-h-72 w-44">
@@ -248,7 +238,7 @@ function QueryRow({
             </DropdownMenuSub>
             <DropdownMenuSeparator />
             <DropdownMenuItem variant="destructive" onClick={() => removeSaved(query.id)}>
-              <Trash2Icon />
+              <TrashIcon />
               Delete
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -348,7 +338,7 @@ function FolderSection({
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem variant="destructive" onClick={() => removeFolder(folder.id)}>
-                <Trash2Icon />
+                <TrashIcon />
                 Delete folder
               </DropdownMenuItem>
             </DropdownMenuContent>

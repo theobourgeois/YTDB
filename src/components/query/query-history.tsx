@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { Trash2Icon } from "lucide-react";
+import { TrashIcon } from "@/components/icons";
 import { rankFuzzyMulti } from "@/lib/fuzzy";
 import { useQueries, type QueryHistoryItem } from "@/lib/store/queries";
 
@@ -73,7 +73,7 @@ export function QueryHistory({
             title="Remove from history"
             className="mt-1.5 mr-1 flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 outline-none hover:bg-foreground/10 hover:text-destructive focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:opacity-100 group-hover:opacity-100"
           >
-            <Trash2Icon className="size-3.5" />
+            <TrashIcon className="size-3.5" />
           </button>
         </li>
       ))}

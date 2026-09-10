@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronsUpDownIcon, Link2Icon } from "lucide-react";
+import { CaretUpDownIcon, LinkIcon } from "@/components/icons";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,10 +25,10 @@ export function ConnectionSwitcher({ current }: { current: Connection }) {
           <ConnectionColorMark connection={current} />
           <span className="truncate">{current.name}</span>
           {current.layoutGroup && (
-            <Link2Icon className="size-3.5 shrink-0 text-muted-foreground" />
+            <LinkIcon className="size-3.5 shrink-0 text-muted-foreground" />
           )}
         </span>
-        <ChevronsUpDownIcon className="size-3.5 shrink-0 text-muted-foreground" />
+        <CaretUpDownIcon className="size-3.5 shrink-0 text-muted-foreground" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-(--anchor-width)">
         {connections.map((connection) => (
@@ -40,7 +40,7 @@ export function ConnectionSwitcher({ current }: { current: Connection }) {
             <ConnectionColorMark connection={connection} />
             <span className="min-w-0 flex-1 truncate">{connection.name}</span>
             {connection.layoutGroup && connection.layoutGroup === current.layoutGroup && (
-              <Link2Icon className="size-3.5 shrink-0 text-muted-foreground" />
+              <LinkIcon className="size-3.5 shrink-0 text-muted-foreground" />
             )}
           </DropdownMenuItem>
         ))}

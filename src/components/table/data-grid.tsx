@@ -11,27 +11,7 @@ import {
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import {
-  ArrowDownIcon,
-  ArrowUpDownIcon,
-  ArrowUpIcon,
-  CheckIcon,
-  CopyIcon,
-  DownloadIcon,
-  EyeOffIcon,
-  FileJson2Icon,
-  FileSpreadsheetIcon,
-  Link2Icon,
-  LoaderCircleIcon,
-  Maximize2Icon,
-  MinusIcon,
-  PencilIcon,
-  PinIcon,
-  PlusIcon,
-  SquareArrowOutUpRightIcon,
-  Trash2Icon,
-  XIcon,
-} from "lucide-react";
+import { ArrowDownIcon, SortIcon, ArrowUpIcon, CheckIcon, CopyIcon, DownloadIcon, EyeOffIcon, JsonIcon, CsvIcon, LinkIcon, SpinnerIcon, ExpandIcon, MinusIcon, PencilIcon, PinFilledIcon, PinIcon, PlusIcon, ArrowSquareOutIcon, TrashIcon, XIcon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import {
   ContextMenu,
@@ -875,11 +855,11 @@ export function DataGrid({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" sideOffset={4} className="min-w-40">
               <DropdownMenuItem onClick={() => exportRows("json")}>
-                <FileJson2Icon />
+                <JsonIcon />
                 Export JSON
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => exportRows("csv")}>
-                <FileSpreadsheetIcon />
+                <CsvIcon />
                 Export CSV
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -892,7 +872,7 @@ export function DataGrid({
             title={cannotDelete ?? undefined}
             onClick={() => requestDelete(selectedIndices)}
           >
-            <Trash2Icon data-icon="inline-start" />
+            <TrashIcon data-icon="inline-start" />
             Delete
           </Button>
         </div>
@@ -974,7 +954,7 @@ export function DataGrid({
                           className="group/sort flex h-full w-full items-center gap-2 overflow-hidden px-3 pr-5 text-left outline-none hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/60"
                         >
                           {pinnedSet.has(column) && (
-                            <PinIcon className="size-3 shrink-0 fill-current text-muted-foreground" />
+                            <PinFilledIcon className="size-3 shrink-0 text-muted-foreground" />
                           )}
                           <span className={cn("truncate", info?.isPrimaryKey && "font-semibold")}>
                             {column}
@@ -984,7 +964,7 @@ export function DataGrid({
                               title={`References ${referencedTitle(relation)}`}
                               className="shrink-0 text-muted-foreground/70"
                             >
-                              <Link2Icon className="size-3" />
+                              <LinkIcon className="size-3" />
                             </span>
                           )}
                           {info && (
@@ -995,7 +975,7 @@ export function DataGrid({
                           ) : direction === "desc" ? (
                             <ArrowDownIcon className="ml-auto size-3.5 shrink-0" />
                           ) : (
-                            <ArrowUpDownIcon className="ml-auto size-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover/sort:opacity-60 group-focus-visible/sort:opacity-60" />
+                            <SortIcon className="ml-auto size-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover/sort:opacity-60 group-focus-visible/sort:opacity-60" />
                           )}
                         </button>
                         <div
@@ -1068,7 +1048,7 @@ export function DataGrid({
                               onClick={() => setEditRow({ rowIndex, row, columns })}
                               className="flex size-5 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground opacity-0 outline-none transition-[opacity,background-color,color] hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring/60 disabled:pointer-events-none group-hover/row:opacity-100"
                             >
-                              <Maximize2Icon className="size-3" />
+                              <ExpandIcon className="size-3" />
                             </button>
                           )}
                         </div>
@@ -1212,7 +1192,7 @@ export function DataGrid({
                 window.open(contextUrl, "_blank", "noopener,noreferrer");
               }}
             >
-              <SquareArrowOutUpRightIcon />
+              <ArrowSquareOutIcon />
               Open URL
             </ContextMenuItem>
             <ContextMenuItem
@@ -1228,7 +1208,7 @@ export function DataGrid({
                 openPeek(target, contextFk, contextRow);
               }}
             >
-              <Link2Icon />
+              <LinkIcon />
               View referenced row
             </ContextMenuItem>
             <ContextMenuItem
@@ -1241,7 +1221,7 @@ export function DataGrid({
                 );
               }}
             >
-              <SquareArrowOutUpRightIcon />
+              <ArrowSquareOutIcon />
               Open referenced table
             </ContextMenuItem>
             <ContextMenuSeparator />
@@ -1254,7 +1234,7 @@ export function DataGrid({
               disabled={!contextColumn}
               onClick={() => contextColumn && onTogglePin(contextColumn)}
             >
-              <PinIcon className={cn(contextPinned && "fill-current")} />
+              {contextPinned ? <PinFilledIcon /> : <PinIcon />}
               {contextPinned ? "Unpin column" : "Pin column"}
             </ContextMenuItem>
             <ContextMenuItem
@@ -1271,14 +1251,14 @@ export function DataGrid({
                 contextCell && copyRows("json", [gridRows[contextCell.rowIndex]])
               }
             >
-              <FileJson2Icon />
+              <JsonIcon />
               Copy row as JSON
             </ContextMenuItem>
             <ContextMenuItem
               disabled={!contextIsRow || !contextCell}
               onClick={() => contextCell && copyRows("csv", [gridRows[contextCell.rowIndex]])}
             >
-              <FileSpreadsheetIcon />
+              <CsvIcon />
               Copy row as CSV
             </ContextMenuItem>
             <ContextMenuSeparator />
@@ -1287,7 +1267,7 @@ export function DataGrid({
               disabled={!contextIsRow || !contextCell || Boolean(cannotDelete)}
               onClick={() => requestDelete(contextDeleteIndices)}
             >
-              <Trash2Icon />
+              <TrashIcon />
               {contextDeleteIndices.length > 1
                 ? `Delete ${contextDeleteIndices.length} selected rows`
                 : "Delete row"}
@@ -1389,7 +1369,7 @@ export function DataGrid({
               disabled={deleting}
               onClick={() => void confirmDelete()}
             >
-              {deleting && <LoaderCircleIcon className="animate-spin" data-icon="inline-start" />}
+              {deleting && <SpinnerIcon className="animate-spin" data-icon="inline-start" />}
               {deleting
                 ? "Deleting…"
                 : pendingDeleteCount === 1

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CheckIcon, Link2Icon } from "lucide-react";
+import { CheckIcon, LinkIcon } from "@/components/icons";
 import { cn } from "@/lib/utils";
 import {
   CONNECTION_COLORS,
@@ -170,7 +170,7 @@ function ConnectionForm({
         {others.length > 0 && (
           <div className="flex flex-col gap-1.5">
             <Label id="connection-share" className="flex items-center gap-1.5">
-              <Link2Icon className="size-3.5 text-muted-foreground" />
+              <LinkIcon className="size-3.5 text-muted-foreground" />
               Share layout with
             </Label>
             <p className="text-xs text-muted-foreground">

@@ -3,17 +3,10 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
-import {
-  ArrowRightIcon,
-  ArrowRightLeftIcon,
-  ChevronsUpDownIcon,
-  CircleCheckIcon,
-  Link2Icon,
-  RefreshCwIcon,
-  Trash2Icon,
-} from "lucide-react";
+import { ArrowRightIcon, SwapIcon, CaretUpDownIcon, CircleCheckIcon, LinkIcon, RefreshIcon, TrashIcon } from "@/components/icons";
 import { ConnectionColorMark } from "@/components/connections/connection-color";
 import { useExplorerContext } from "@/components/explorer/explorer-provider";
+import { ViewHeader } from "@/components/explorer/view-header";
 import { SchemaMultiSelect } from "@/components/explorer/schema-multi-select";
 import { SqlSource } from "@/components/sql/sql-source";
 import { Button } from "@/components/ui/button";
@@ -119,7 +112,7 @@ export function SchemaDiffView() {
 
   return (
     <>
-      <header className="flex h-11 items-center gap-2 border-b px-4">
+      <ViewHeader>
         <ConnectionColorMark connection={connection} />
         <span className="max-w-40 truncate font-medium">{connection.name}</span>
         <ArrowRightIcon className="size-3.5 shrink-0 text-muted-foreground" />
@@ -136,7 +129,7 @@ export function SchemaDiffView() {
           aria-label="Swap comparison direction"
           onClick={swap}
         >
-          <ArrowRightLeftIcon />
+          <SwapIcon />
         </Button>
         <Button
           variant="ghost"
@@ -150,9 +143,9 @@ export function SchemaDiffView() {
             comparand.reload();
           }}
         >
-          <RefreshCwIcon className={cn(loading && "animate-spin")} />
+          <RefreshIcon className={cn(loading && "animate-spin")} />
         </Button>
-      </header>
+      </ViewHeader>
 
       {pane === "changes" ? (
         <div className="flex items-center gap-1 border-b px-2 py-1">
@@ -207,7 +200,7 @@ export function SchemaDiffView() {
                 title={`DROP statements for objects that exist only in ${target.name}`}
                 onClick={() => setIncludeDrops((current) => !current)}
               >
-                <Trash2Icon data-icon="inline-start" />
+                <TrashIcon data-icon="inline-start" />
                 Include drops
               </Button>
             }
@@ -271,7 +264,7 @@ function TargetPicker({
         <ConnectionColorMark connection={target} />
         <span className="max-w-40 truncate">{target.name}</span>
         {candidates.length > 1 && (
-          <ChevronsUpDownIcon className="size-3.5 shrink-0 text-muted-foreground" />
+          <CaretUpDownIcon className="size-3.5 shrink-0 text-muted-foreground" />
         )}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="min-w-52">
@@ -284,7 +277,7 @@ function TargetPicker({
             <ConnectionColorMark connection={candidate} />
             <span className="min-w-0 flex-1 truncate">{candidate.name}</span>
             {partnerIds.includes(candidate.id) && (
-              <Link2Icon className="size-3.5 shrink-0 text-muted-foreground" />
+              <LinkIcon className="size-3.5 shrink-0 text-muted-foreground" />
             )}
           </DropdownMenuItem>
         ))}

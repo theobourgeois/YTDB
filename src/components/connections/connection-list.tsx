@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { GitCompareIcon, Link2Icon, MoreHorizontalIcon, PlusIcon } from "lucide-react";
+import { GitCompareIcon, LinkIcon, MoreIcon, PlusIcon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -51,7 +51,7 @@ function ConnectionRow({
             <span className="truncate">{hostOf(connection.url)}</span>
             {partners.length > 0 && (
               <span className="inline-flex min-w-0 items-center gap-1 font-sans">
-                <Link2Icon className="size-3 shrink-0" />
+                <LinkIcon className="size-3 shrink-0" />
                 <span className="truncate">
                   {partners.map((partner) => partner.name).join(", ")}
                 </span>
@@ -65,7 +65,7 @@ function ConnectionRow({
           render={<Button variant="ghost" size="icon-sm" aria-label="More" />}
           className="opacity-0 group-hover:opacity-100 data-open:opacity-100"
         >
-          <MoreHorizontalIcon />
+          <MoreIcon />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuItem onClick={() => onEdit(connection)}>Edit</DropdownMenuItem>

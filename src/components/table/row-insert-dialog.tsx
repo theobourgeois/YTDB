@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, type FormEvent } from "react";
-import { LoaderCircleIcon } from "lucide-react";
+import { SpinnerIcon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -209,7 +209,7 @@ function InsertForm({
           Cancel
         </Button>
         <Button type="submit" disabled={saving}>
-          {saving && <LoaderCircleIcon className="animate-spin" data-icon="inline-start" />}
+          {saving && <SpinnerIcon className="animate-spin" data-icon="inline-start" />}
           {saving ? "Inserting…" : "Insert row"}
         </Button>
       </DialogFooter>

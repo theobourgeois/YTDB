@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { DatabaseIcon, HistoryIcon, PinIcon, SearchIcon, Table2Icon } from "lucide-react";
+import { DatabaseIcon, HistoryIcon, PinFilledIcon, PinIcon, SearchIcon, TableIcon } from "@/components/icons";
 import { ConnectionColorMark } from "@/components/connections/connection-color";
 import { api } from "@/lib/api";
 import { useConnections } from "@/lib/store/connections";
@@ -586,7 +586,7 @@ export function TablePalette() {
                     {row.recent && !row.pinned ? (
                       <HistoryIcon className="size-3.5 shrink-0 text-muted-foreground" />
                     ) : (
-                      <Table2Icon className="size-3.5 shrink-0 text-muted-foreground" />
+                      <TableIcon className="size-3.5 shrink-0 text-muted-foreground" />
                     )}
                     <span className={cn("min-w-0 truncate", current && "font-medium")}>
                       <HighlightedText text={row.table.name} query={highlightQuery} />
@@ -608,7 +608,7 @@ export function TablePalette() {
                       row.pinned && "text-foreground",
                     )}
                   >
-                    <PinIcon className={cn("size-3.5", row.pinned && "fill-current")} />
+                    {row.pinned ? <PinFilledIcon className="size-3.5" /> : <PinIcon className="size-3.5" />}
                   </button>
                 </div>
               </div>

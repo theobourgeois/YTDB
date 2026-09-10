@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, type FormEvent } from "react";
-import { LoaderCircleIcon, PencilIcon } from "lucide-react";
+import { SpinnerIcon, PencilIcon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -267,7 +267,7 @@ function EditForm({
           Cancel
         </Button>
         <Button type="submit" disabled={saving || changeCount === 0}>
-          {saving && <LoaderCircleIcon className="animate-spin" data-icon="inline-start" />}
+          {saving && <SpinnerIcon className="animate-spin" data-icon="inline-start" />}
           {saving ? "Saving…" : changeCount === 0 ? "Save" : `Save ${changeCount}`}
         </Button>
       </SheetFooter>

@@ -3,7 +3,7 @@
 import { useState, type DragEvent as ReactDragEvent, type KeyboardEvent } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ChevronRightIcon, GripVerticalIcon, PinIcon } from "lucide-react";
+import { ChevronRightIcon, GripIcon, PinFilledIcon, PinIcon } from "@/components/icons";
 import { cn } from "@/lib/utils";
 import { tableKey, type TableInfo } from "@/lib/types";
 
@@ -137,7 +137,7 @@ function TableRow({
           }}
           className="ml-1.5 flex size-5 shrink-0 cursor-grab touch-none items-center justify-center rounded text-muted-foreground opacity-50 outline-none transition-[color,background-color,opacity] hover:bg-foreground/10 hover:text-foreground hover:opacity-100 focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:opacity-100 active:cursor-grabbing"
         >
-          <GripVerticalIcon className="size-3.5" />
+          <GripIcon className="size-3.5" />
         </button>
       )}
       <Link
@@ -171,7 +171,7 @@ function TableRow({
           pinned && "text-foreground",
         )}
       >
-        <PinIcon className={cn("size-3.5", pinned && "fill-current")} />
+        {pinned ? <PinFilledIcon className="size-3.5" /> : <PinIcon className="size-3.5" />}
       </button>
     </li>
   );
@@ -202,7 +202,7 @@ function GroupHeader({
       <ChevronRightIcon
         className={cn("size-3.5 transition-transform", !collapsed && "rotate-90")}
       />
-      {pinned && <PinIcon className="mr-0.5 size-3 fill-current" />}
+      {pinned && <PinFilledIcon className="mr-0.5 size-3" />}
       <span className="truncate">
         {pinned ? label : <HighlightedText text={label} query={queryPart(search, "schema")} />}
       </span>

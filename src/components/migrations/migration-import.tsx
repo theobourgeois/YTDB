@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { FolderOpenIcon, FolderUpIcon, LoaderCircleIcon } from "lucide-react";
+import { FolderOpenIcon, FolderUploadIcon, SpinnerIcon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { readDroppedFolder, readPickedFolder } from "@/lib/migrations/folder";
 import type { ImportedFile } from "@/lib/migrations/parse";
@@ -87,9 +87,9 @@ export function MigrationDropZone({ onFiles, className, compact = false }: Props
       )}
     >
       {busy ? (
-        <LoaderCircleIcon className="size-4 shrink-0 animate-spin text-muted-foreground" />
+        <SpinnerIcon className="size-4 shrink-0 animate-spin text-muted-foreground" />
       ) : (
-        <FolderUpIcon
+        <FolderUploadIcon
           className={cn("shrink-0 text-muted-foreground", compact ? "size-4" : "size-5")}
         />
       )}

@@ -1,19 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import {
-  CheckIcon,
-  ChevronRightIcon,
-  ClipboardCheckIcon,
-  ClipboardXIcon,
-  FileUpIcon,
-  CopyIcon,
-  MinusIcon,
-  MoreHorizontalIcon,
-  SquareTerminalIcon,
-  TriangleAlertIcon,
-  UndoIcon,
-} from "lucide-react";
+import { CheckIcon, ChevronRightIcon, ClipboardCheckIcon, ClipboardXIcon, FileUploadIcon, CopyIcon, MinusIcon, MoreIcon, TerminalIcon, WarningIcon, UndoIcon } from "@/components/icons";
 import { SqlCode, copySql } from "@/components/sql/sql-source";
 import { Button } from "@/components/ui/button";
 import {
@@ -78,7 +66,7 @@ export function StatusMark({ status }: { status: StepStatus }) {
     return <CheckIcon className="size-4 text-emerald-600 dark:text-emerald-400" />;
   }
   if (status === "drifted") {
-    return <TriangleAlertIcon className="size-3.5 text-amber-600 dark:text-amber-400" />;
+    return <WarningIcon className="size-3.5 text-amber-600 dark:text-amber-400" />;
   }
   if (status === "unknown") {
     return <span className="size-1.5 rounded-full bg-muted-foreground/30" />;
@@ -189,7 +177,7 @@ export function MigrationRow({
               }
               className="cursor-pointer"
             >
-              <MoreHorizontalIcon />
+              <MoreIcon />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="min-w-56">
               <DropdownMenuItem disabled={busy || status === "applied"} onClick={actions.onApplyThrough}>
@@ -221,11 +209,11 @@ export function MigrationRow({
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={actions.onAttachRevert}>
-                <FileUpIcon />
+                <FileUploadIcon />
                 {step.revertSql ? "Replace revert file…" : "Add a revert file…"}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => actions.onOpenInEditor(sql)}>
-                <SquareTerminalIcon />
+                <TerminalIcon />
                 Open {pane} SQL in editor
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => void copy()}>
@@ -268,7 +256,7 @@ export function MigrationRow({
                   key={warning}
                   className="flex gap-1.5 text-[11px] text-amber-700 dark:text-amber-400"
                 >
-                  <TriangleAlertIcon className="mt-px size-3 shrink-0" />
+                  <WarningIcon className="mt-px size-3 shrink-0" />
                   <span>{warning}</span>
                 </li>
               ))}
@@ -280,7 +268,7 @@ export function MigrationRow({
             <div className="flex items-center gap-2 px-3 pb-3 text-xs text-muted-foreground">
               <span>No revert file, so this one cannot be undone from here.</span>
               <Button size="xs" variant="outline" onClick={actions.onAttachRevert}>
-                <FileUpIcon data-icon="inline-start" />
+                <FileUploadIcon data-icon="inline-start" />
                 Add one
               </Button>
             </div>

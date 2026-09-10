@@ -2,15 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Popover } from "@base-ui/react/popover";
-import {
-  ArrowUpRightIcon,
-  ChevronRightIcon,
-  ChevronLeftIcon,
-  KeyRoundIcon,
-  Link2Icon,
-  LoaderCircleIcon,
-  PencilIcon,
-} from "lucide-react";
+import { ArrowUpRightIcon, ChevronRightIcon, ChevronLeftIcon, KeyIcon, LinkIcon, SpinnerIcon, PencilIcon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAsync } from "@/hooks/use-async";
@@ -238,7 +230,7 @@ function PeekBody({
         )}
         <div className="min-w-0 flex-1">
           <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-            <Link2Icon className="size-3 shrink-0" />
+            <LinkIcon className="size-3 shrink-0" />
             <span className="truncate font-mono">{tableKey(frame.table)}</span>
           </p>
           <p title={title} className="mt-0.5 truncate font-mono text-sm font-medium">
@@ -312,7 +304,7 @@ function PeekBody({
                   >
                     <dt className="flex min-w-0 items-center gap-1.5">
                       {info?.isPrimaryKey && (
-                        <KeyRoundIcon
+                        <KeyIcon
                           aria-label="Primary key"
                           className="size-3 shrink-0 text-muted-foreground"
                         />
@@ -369,7 +361,7 @@ function PeekBody({
                                 }
                                 className="group -m-1 flex max-w-full cursor-pointer items-center gap-1.5 rounded-md p-1 text-left outline-none hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring/60"
                               >
-                                <Link2Icon className="size-3 shrink-0 text-muted-foreground" />
+                                <LinkIcon className="size-3 shrink-0 text-muted-foreground" />
                                 <span className="min-w-0 truncate underline decoration-foreground/20 underline-offset-2">
                                   {showLabel ? label : valueText}
                                 </span>
@@ -456,7 +448,7 @@ function PeekBody({
 
       {rows.loading && cached && (
         <p className="flex shrink-0 items-center gap-1.5 border-t px-3 py-1.5 text-[10px] text-muted-foreground">
-          <LoaderCircleIcon className="size-3 animate-spin" />
+          <SpinnerIcon className="size-3 animate-spin" />
           Refreshing
         </p>
       )}

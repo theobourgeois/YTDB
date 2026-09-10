@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  CheckIcon,
-  CircleDashedIcon,
-  LoaderCircleIcon,
-  MinusIcon,
-  TriangleAlertIcon,
-  XIcon,
-} from "lucide-react";
+import { CheckIcon, CircleDashedIcon, SpinnerIcon, MinusIcon, WarningIcon, XIcon } from "@/components/icons";
 import { ConnectionColorMark } from "@/components/connections/connection-color";
 import { Button } from "@/components/ui/button";
 import {
@@ -68,7 +61,7 @@ export function describeConnection(url: string): string {
 function StatusIcon({ status }: { status: RunStepStatus }) {
   switch (status) {
     case "running":
-      return <LoaderCircleIcon className="size-3.5 shrink-0 animate-spin text-primary" />;
+      return <SpinnerIcon className="size-3.5 shrink-0 animate-spin text-primary" />;
     case "ok":
       return <CheckIcon className="size-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />;
     case "failed":
@@ -171,7 +164,7 @@ export function MigrationRunDialog({
 
         {!progress && blockedBy && (
           <p className="flex gap-2 text-xs text-muted-foreground">
-            <TriangleAlertIcon className="mt-px size-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+            <WarningIcon className="mt-px size-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
             <span>
               {count === 0
                 ? `${blockedBy.version} ${blockedBy.name} is the newest one applied and has no revert file, so nothing below it can be reached.`
@@ -189,7 +182,7 @@ export function MigrationRunDialog({
 
         {!progress && !recordOnly && unwrapped.length > 0 && (
           <p className="flex gap-2 text-xs text-muted-foreground">
-            <TriangleAlertIcon className="mt-px size-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+            <WarningIcon className="mt-px size-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
             <span>
               {unwrapped.length === 1
                 ? `${unwrapped[0].version} runs outside a transaction, so a failure partway leaves it half applied.`

@@ -3,21 +3,10 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useRef, useState } from "react";
-import {
-  ChevronLeftIcon,
-  ClipboardCheckIcon,
-  FolderUpIcon,
-  Layers2Icon,
-  MoreHorizontalIcon,
-  PencilIcon,
-  PlayIcon,
-  RefreshCwIcon,
-  TableIcon,
-  TriangleAlertIcon,
-  UndoIcon,
-} from "lucide-react";
+import { ClipboardCheckIcon, FolderUploadIcon, StackIcon, MoreIcon, PencilIcon, PlayIcon, RefreshIcon, TableIcon, WarningIcon, UndoIcon } from "@/components/icons";
 import { useExplorerContext } from "@/components/explorer/explorer-provider";
 import { useGoToConnection } from "@/components/explorer/use-switch-connection";
+import { ViewHeader } from "@/components/explorer/view-header";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -324,7 +313,7 @@ export function MigrationDetail({ setId }: { setId: string }) {
   if (!activeSet) {
     return (
       <div className="flex min-h-0 flex-1 flex-col">
-        <Header name="Not found" indexHref={indexHref} />
+        <Header name="Not found" />
         <div className="flex flex-1 flex-col items-center justify-center gap-2 text-muted-foreground">
           <p className="text-sm">That migration is no longer here.</p>
           <Link href={indexHref} className="text-foreground underline underline-offset-4">
@@ -348,7 +337,7 @@ export function MigrationDetail({ setId }: { setId: string }) {
         setDragging(true);
       }}
     >
-      <Header name={activeSet?.name ?? ""} indexHref={indexHref}>
+      <Header name={activeSet?.name ?? ""}>
         <TargetPicker
           environments={environments}
           targetId={connection.id}
@@ -363,10 +352,10 @@ export function MigrationDetail({ setId }: { setId: string }) {
             title="Re-read every environment's ledger"
             onClick={() => ledgers.reload()}
           >
-            <RefreshCwIcon className={cn(ledgers.loading && "animate-spin")} />
+            <RefreshIcon className={cn(ledgers.loading && "animate-spin")} />
           </Button>
           <Button size="sm" variant="ghost" onClick={() => setDragging(true)}>
-            <FolderUpIcon data-icon="inline-start" />
+            <FolderUploadIcon data-icon="inline-start" />
             Import
           </Button>
           <DropdownMenu>
@@ -374,7 +363,7 @@ export function MigrationDetail({ setId }: { setId: string }) {
               render={<Button size="icon-sm" variant="ghost" aria-label="More migration actions" />}
               className="cursor-pointer"
             >
-              <MoreHorizontalIcon />
+              <MoreIcon />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="min-w-64">
               <DropdownMenuItem
@@ -586,28 +575,13 @@ export function MigrationDetail({ setId }: { setId: string }) {
   );
 }
 
-function Header({
-  name,
-  indexHref,
-  children,
-}: {
-  name: string;
-  indexHref: string;
-  children?: React.ReactNode;
-}) {
+function Header({ name, children }: { name: string; children?: React.ReactNode }) {
   return (
-    <header className="flex h-11 shrink-0 items-center gap-2 border-b px-3">
-      <Link
-        href={indexHref}
-        title="Back to all migrations"
-        className="flex shrink-0 items-center gap-1.5 rounded-md px-1 py-0.5 text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60"
-      >
-        <ChevronLeftIcon className="size-4" />
-        <Layers2Icon className="size-4" />
-      </Link>
+    <ViewHeader>
+      <StackIcon className="size-4 shrink-0 text-muted-foreground" />
       <span className="min-w-0 truncate font-medium">{name}</span>
       {children}
-    </header>
+    </ViewHeader>
   );
 }
 
@@ -651,7 +625,7 @@ function ForeignList({
   return (
     <div className="border-t bg-muted/20">
       <p className="flex items-center gap-2 px-4 py-2 text-xs text-muted-foreground">
-        <TriangleAlertIcon className="size-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+        <WarningIcon className="size-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
         Applied on {connectionName}, not in this folder
       </p>
       {entries.map((entry) => (

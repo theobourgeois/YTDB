@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Columns3Icon, EyeIcon, EyeOffIcon, PinIcon, RotateCcwIcon } from "lucide-react";
+import { ColumnsIcon, EyeIcon, EyeOffIcon, PinFilledIcon, PinIcon, ResetIcon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -53,7 +53,7 @@ export function ColumnLayoutMenu({
         render={<Button variant="ghost" size="sm" />}
         className="cursor-pointer"
       >
-        <Columns3Icon data-icon="inline-start" />
+        <ColumnsIcon data-icon="inline-start" />
         Columns
         {hiddenCount > 0 && (
           <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] tabular-nums text-muted-foreground">
@@ -99,7 +99,7 @@ export function ColumnLayoutMenu({
                       isPinned && "text-foreground",
                     )}
                   >
-                    <PinIcon className={cn(isPinned && "fill-current")} />
+                    {isPinned ? <PinFilledIcon /> : <PinIcon />}
                   </Button>
                   <Button
                     type="button"
@@ -135,7 +135,7 @@ export function ColumnLayoutMenu({
         <DropdownMenuSeparator className="mx-0" />
         <div className="p-1">
           <DropdownMenuItem onClick={onReset}>
-            <RotateCcwIcon />
+            <ResetIcon />
             Reset columns
           </DropdownMenuItem>
         </div>

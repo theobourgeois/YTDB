@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckIcon, ClipboardCheckIcon, ClipboardXIcon, UndoIcon, XIcon } from "lucide-react";
+import { CheckIcon, ClipboardCheckIcon, ClipboardXIcon, UndoIcon, XIcon } from "@/components/icons";
 import { ConnectionColorMark } from "@/components/connections/connection-color";
 import { Button } from "@/components/ui/button";
 import type { HistoryEvent, HistoryKind } from "@/lib/migrations/history";

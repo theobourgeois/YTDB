@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, type ChangeEvent } from "react";
-import { DownloadIcon, UploadIcon } from "lucide-react";
+import { DownloadIcon, UploadIcon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,

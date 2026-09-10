@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
-import { ChevronRightIcon, Layers2Icon, PlusIcon } from "lucide-react";
+import { ChevronRightIcon, StackIcon, PlusIcon } from "@/components/icons";
 import { ConnectionColorMark } from "@/components/connections/connection-color";
 import { useExplorerContext } from "@/components/explorer/explorer-provider";
+import { ViewHeader } from "@/components/explorer/view-header";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAsync } from "@/hooks/use-async";
@@ -181,14 +182,14 @@ export function MigrationsIndex() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <header className="flex h-11 shrink-0 items-center gap-2 border-b px-3">
-        <Layers2Icon className="size-4 shrink-0 text-muted-foreground" />
+      <ViewHeader>
+        <StackIcon className="size-4 shrink-0 text-muted-foreground" />
         <span className="font-medium">Migrations</span>
         <Button size="sm" variant="ghost" className="ml-auto" onClick={() => setNaming(true)}>
           <PlusIcon data-icon="inline-start" />
           New migration
         </Button>
-      </header>
+      </ViewHeader>
 
       {pane === "history" ? (
         <ScrollArea className="min-h-0 flex-1">

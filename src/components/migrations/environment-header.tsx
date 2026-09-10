@@ -1,6 +1,6 @@
 "use client";
 
-import { GitCompareIcon } from "lucide-react";
+import { GitCompareIcon } from "@/components/icons";
 import { ConnectionColorMark } from "@/components/connections/connection-color";
 import { Button } from "@/components/ui/button";
 import {

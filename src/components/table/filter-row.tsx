@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
-import { XIcon } from "lucide-react";
+import { XIcon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import {
   Combobox,

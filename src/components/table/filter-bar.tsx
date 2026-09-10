@@ -7,7 +7,7 @@ import {
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
-import { RefreshCwIcon, SearchIcon, XIcon } from "lucide-react";
+import { RefreshIcon, SearchIcon, XIcon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { rankFuzzy } from "@/lib/fuzzy";
 import { newFilter } from "@/lib/filters";
@@ -395,7 +395,7 @@ export function FilterBar({
           disabled={refreshing}
           onClick={onRefresh}
         >
-          <RefreshCwIcon className={cn(refreshing && "animate-spin")} />
+          <RefreshIcon className={cn(refreshing && "animate-spin")} />
         </Button>
       ) : null}
     </div>

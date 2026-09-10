@@ -2,15 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { SQLNamespace } from "@codemirror/lang-sql";
-import {
-  ArrowLeftIcon,
-  BookmarkIcon,
-  EraserIcon,
-  LoaderCircleIcon,
-  PlayIcon,
-  SquareTerminalIcon,
-} from "lucide-react";
+import { ArrowLeftIcon, BookmarkFilledIcon, BookmarkIcon, EraserIcon, SpinnerIcon, PlayIcon, TerminalIcon } from "@/components/icons";
 import { useExplorerContext } from "@/components/explorer/explorer-provider";
+import { ViewHeader } from "@/components/explorer/view-header";
 import { useNavigationHistory } from "@/components/explorer/use-navigation-history";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
@@ -164,15 +158,15 @@ export function QueryView() {
   return (
     <div className="flex min-h-0 flex-1 overflow-hidden">
       <section className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-11 shrink-0 items-center gap-2 border-b px-3">
-          <SquareTerminalIcon className="size-4 shrink-0 text-muted-foreground" />
+        <ViewHeader>
+          <TerminalIcon className="size-4 shrink-0 text-muted-foreground" />
           <span className="font-medium">Query</span>
           {activeSaved && (
             <span
               className="flex min-w-0 items-center gap-1.5 rounded-md bg-muted/70 py-0.5 pr-2 pl-1.5 text-xs"
               title={dirty ? `${activeSaved.name} (unsaved changes)` : activeSaved.name}
             >
-              <BookmarkIcon className="size-3 shrink-0 fill-current text-muted-foreground" />
+              <BookmarkFilledIcon className="size-3 shrink-0 text-muted-foreground" />
               <span className="truncate">{activeSaved.name}</span>
               <span
                 aria-hidden
@@ -205,10 +199,11 @@ export function QueryView() {
             title={activeSaved ? "Save changes (⌘S)" : "Save query (⌘S)"}
             onClick={save}
           >
-            <BookmarkIcon
-              data-icon="inline-start"
-              className={cn(activeSaved && !dirty && "fill-current")}
-            />
+            {activeSaved && !dirty ? (
+              <BookmarkFilledIcon data-icon="inline-start" />
+            ) : (
+              <BookmarkIcon data-icon="inline-start" />
+            )}
             {activeSaved && !dirty ? "Saved" : "Save"}
           </Button>
           <Button
@@ -229,13 +224,13 @@ export function QueryView() {
             onClick={() => void run()}
           >
             {loading ? (
-              <LoaderCircleIcon data-icon="inline-start" className="animate-spin" />
+              <SpinnerIcon data-icon="inline-start" className="animate-spin" />
             ) : (
               <PlayIcon data-icon="inline-start" />
             )}
             {loading ? "Running" : "Run"}
           </Button>
-        </header>
+        </ViewHeader>
 
         <div
           ref={editorPaneRef}

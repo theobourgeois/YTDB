@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronRightIcon, ExternalLinkIcon } from "lucide-react";
+import { ChevronRightIcon, ArrowSquareOutIcon } from "@/components/icons";
 import { SqlCode } from "@/components/sql/sql-source";
 import { createEnumSql, createRelationSql, quoteIdent } from "@/lib/schema-ddl";
 import type { DetailGroup, DiffDetail, DiffObject, DiffStatus } from "@/lib/schema-diff";
@@ -137,7 +137,7 @@ function DiffRow({
             aria-label={`Open ${object.label}`}
             className="mr-1.5 flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 outline-none hover:bg-muted hover:text-foreground focus-visible:opacity-100 group-hover/diff-row:opacity-100"
           >
-            <ExternalLinkIcon className="size-3.5" />
+            <ArrowSquareOutIcon className="size-3.5" />
           </Link>
         ) : (
           <span className="w-1.5 shrink-0" />

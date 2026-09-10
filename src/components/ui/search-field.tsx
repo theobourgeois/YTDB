@@ -1,6 +1,6 @@
 "use client";
 
-import { SearchIcon } from "lucide-react";
+import { SearchIcon } from "@/components/icons";
 import type { ComponentProps, ReactNode } from "react";
 import { cn } from "@/lib/utils";
 

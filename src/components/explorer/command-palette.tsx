@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { CheckIcon } from "lucide-react";
+import { CheckIcon } from "@/components/icons";
 import { ConnectionDialog } from "@/components/connections/connection-dialog";
 import { useConnections } from "@/lib/store/connections";
 import {

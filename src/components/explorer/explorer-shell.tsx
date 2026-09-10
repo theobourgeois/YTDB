@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { PanelLeftOpenIcon } from "lucide-react";
+import { SidebarIcon } from "@/components/icons";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { useHydrated } from "@/hooks/use-hydrated";
@@ -11,7 +11,6 @@ import { resolveConnectionColor } from "@/lib/connection-colors";
 import { ExplorerProvider } from "./explorer-provider";
 import { Sidebar } from "./sidebar";
 import { CommandPalette } from "./command-palette";
-import { HistoryButtons } from "./history-buttons";
 import { GlobalShortcuts } from "./global-shortcuts";
 import { TablePalette } from "./table-palette";
 
@@ -52,7 +51,7 @@ export function ExplorerShell({
         />
         <div className="flex min-h-0 flex-1 overflow-hidden">
           {browse.sidebarCollapsed ? (
-            <aside className="relative flex h-full w-10 shrink-0 flex-col items-center gap-1 border-r bg-sidebar pt-2">
+            <aside className="relative flex h-full w-10 shrink-0 justify-center border-r bg-sidebar pt-2">
               <span
                 aria-hidden
                 className="absolute inset-y-0 left-0 w-1"
@@ -65,9 +64,8 @@ export function ExplorerShell({
                 title="Show sidebar"
                 onClick={() => setBrowse({ sidebarCollapsed: false })}
               >
-                <PanelLeftOpenIcon />
+                <SidebarIcon />
               </Button>
-              <HistoryButtons className="flex-col" />
             </aside>
           ) : (
             <Sidebar

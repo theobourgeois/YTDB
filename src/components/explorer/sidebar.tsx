@@ -10,12 +10,7 @@ import {
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import {
-  GitCompareIcon,
-  Layers2Icon,
-  PanelLeftCloseIcon,
-  SquareTerminalIcon,
-} from "lucide-react";
+import { GitCompareIcon, StackIcon, SidebarIcon, TerminalIcon } from "@/components/icons";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { SearchField } from "@/components/ui/search-field";
@@ -26,7 +21,6 @@ import { SHORTCUTS } from "@/lib/shortcuts";
 import { tableKey, type TableInfo } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { ConnectionSwitcher } from "./connection-switcher";
-import { HistoryButtons } from "./history-buttons";
 import { useExplorerContext } from "./explorer-provider";
 import { SchemaMultiSelect } from "./schema-multi-select";
 import { TableList } from "./table-list";
@@ -243,7 +237,6 @@ export function Sidebar({ width: persistedWidth, onWidthChange, onCollapse }: Pr
     >
       <div className="flex flex-col gap-0.5 border-b border-sidebar-border/60 p-2">
         <div className="mb-1 flex items-center gap-1">
-          <HistoryButtons className="-ml-0.5" />
           <div className="min-w-0 flex-1">
             <ConnectionSwitcher current={connection} />
           </div>
@@ -254,11 +247,11 @@ export function Sidebar({ width: persistedWidth, onWidthChange, onCollapse }: Pr
             title="Collapse sidebar"
             onClick={onCollapse}
           >
-            <PanelLeftCloseIcon />
+            <SidebarIcon />
           </Button>
         </div>
         <NavLink href={queryHref} active={pathname === queryHref} shortcut={SHORTCUTS.sqlEditor}>
-          <SquareTerminalIcon data-icon="inline-start" />
+          <TerminalIcon data-icon="inline-start" />
           SQL query
         </NavLink>
         <NavLink
@@ -266,7 +259,7 @@ export function Sidebar({ width: persistedWidth, onWidthChange, onCollapse }: Pr
           active={pathname === migrationsHref || pathname.startsWith(`${migrationsHref}/`)}
           shortcut={SHORTCUTS.migrations}
         >
-          <Layers2Icon data-icon="inline-start" />
+          <StackIcon data-icon="inline-start" />
           Migrations
         </NavLink>
         {comparable && (

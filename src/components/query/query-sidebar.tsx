@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { FolderPlusIcon } from "lucide-react";
+import { FolderPlusIcon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { SearchField } from "@/components/ui/search-field";
 import { useQueries, type SavedQuery } from "@/lib/store/queries";
