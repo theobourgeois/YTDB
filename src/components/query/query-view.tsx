@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { SQLNamespace } from "@codemirror/lang-sql";
-import { ArrowLeftIcon, BookmarkFilledIcon, BookmarkIcon, EraserIcon, SpinnerIcon, PlayIcon, TerminalIcon } from "@/components/icons";
+import { ArrowLeftIcon, EraserIcon, SpinnerIcon, PlayIcon, TerminalIcon } from "@/components/icons";
 import { useExplorerContext } from "@/components/explorer/explorer-provider";
 import { ViewHeader } from "@/components/explorer/view-header";
 import { useNavigationHistory } from "@/components/explorer/use-navigation-history";
@@ -10,18 +10,12 @@ import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import { MAX_QUERY_LENGTH } from "@/lib/query-limits";
 import { SHORTCUTS } from "@/lib/shortcuts";
-import {
-  MAX_EDITOR_HEIGHT,
-  MIN_EDITOR_HEIGHT,
-  useQueries,
-  type SavedQuery,
-} from "@/lib/store/queries";
+import { MAX_EDITOR_HEIGHT, MIN_EDITOR_HEIGHT, useQueries } from "@/lib/store/queries";
 import type { SqlQueryResult } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { QueryEditor, type QueryEditorHandle } from "./query-editor";
 import { QueryResultGrid } from "./query-result-grid";
-import { QuerySidebar, type QuerySidebarTab } from "./query-sidebar";
-import { SaveQueryDialog } from "./save-query-dialog";
+import { QuerySidebar } from "./query-sidebar";
 
 const DATA_ONLY_COMMANDS = new Set(["SELECT", "SHOW", "EXPLAIN", "FETCH"]);
 
@@ -30,19 +24,11 @@ export function QueryView() {
   const draft = useQueries((state) => state.drafts[connection.id] ?? "");
   const setDraft = useQueries((state) => state.setDraft);
   const record = useQueries((state) => state.record);
-  const activeSavedId = useQueries((state) => state.activeSaved[connection.id] ?? null);
-  const activeSaved = useQueries((state) =>
-    activeSavedId ? (state.saved.find((query) => query.id === activeSavedId) ?? null) : null,
-  );
-  const setActiveSaved = useQueries((state) => state.setActiveSaved);
   const editorHeight = useQueries((state) => state.editorHeight);
   const setEditorHeight = useQueries((state) => state.setEditorHeight);
-  const updateSaved = useQueries((state) => state.updateSaved);
   const [result, setResult] = useState<SqlQueryResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [sidebarTab, setSidebarTab] = useState<QuerySidebarTab>("saved");
   const editorRef = useRef<QueryEditorHandle>(null);
   const editorPaneRef = useRef<HTMLDivElement>(null);
   const requestRef = useRef<AbortController | null>(null);
@@ -52,9 +38,6 @@ export function QueryView() {
     history.back?.route.kind === "migration" && history.back.route.connectionId === connection.id
       ? history.back
       : null;
-
-  const dirty = activeSaved !== null && activeSaved.sql !== draft;
-  const canSave = draft.trim().length > 0 && (activeSaved === null || dirty);
 
   const completionSchema = useMemo((): SQLNamespace => {
     const root: Record<string, Record<string, string[]>> = {};
@@ -118,39 +101,14 @@ export function QueryView() {
     }
   }
 
-  /** Updates the loaded saved query in place, or asks for a name when nothing is loaded. */
-  function save() {
-    if (!draft.trim()) {
-      setError("Enter a query to save.");
-      editorRef.current?.focus();
-      return;
-    }
-    if (activeSaved) {
-      if (dirty) updateSaved(activeSaved.id, { sql: draft });
-      return;
-    }
-    setSaving(true);
-  }
-
   function loadEditor(sql: string) {
     setDraft(connection.id, sql);
     setError(null);
     window.requestAnimationFrame(() => editorRef.current?.focus(true));
   }
 
-  function loadHistory(sql: string) {
-    setActiveSaved(connection.id, null);
-    loadEditor(sql);
-  }
-
-  function loadSaved(query: SavedQuery) {
-    setActiveSaved(connection.id, query.id);
-    loadEditor(query.sql);
-  }
-
   function clear() {
     setDraft(connection.id, "");
-    setActiveSaved(connection.id, null);
     setError(null);
     editorRef.current?.focus();
   }
@@ -161,22 +119,6 @@ export function QueryView() {
         <ViewHeader>
           <TerminalIcon className="size-4 shrink-0 text-muted-foreground" />
           <span className="font-medium">Query</span>
-          {activeSaved && (
-            <span
-              className="flex min-w-0 items-center gap-1.5 rounded-md bg-muted/70 py-0.5 pr-2 pl-1.5 text-xs"
-              title={dirty ? `${activeSaved.name} (unsaved changes)` : activeSaved.name}
-            >
-              <BookmarkFilledIcon className="size-3 shrink-0 text-muted-foreground" />
-              <span className="truncate">{activeSaved.name}</span>
-              <span
-                aria-hidden
-                className={cn(
-                  "size-1.5 shrink-0 rounded-full bg-primary transition-opacity",
-                  dirty ? "opacity-100" : "opacity-0",
-                )}
-              />
-            </span>
-          )}
           {cameFromMigration && (
             <Button
               type="button"
@@ -195,22 +137,7 @@ export function QueryView() {
             variant="ghost"
             size="sm"
             className={cn(!cameFromMigration && "ml-auto")}
-            disabled={!canSave}
-            title={activeSaved ? "Save changes (⌘S)" : "Save query (⌘S)"}
-            onClick={save}
-          >
-            {activeSaved && !dirty ? (
-              <BookmarkFilledIcon data-icon="inline-start" />
-            ) : (
-              <BookmarkIcon data-icon="inline-start" />
-            )}
-            {activeSaved && !dirty ? "Saved" : "Save"}
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            disabled={loading || (!draft && !activeSaved)}
+            disabled={loading || !draft}
             onClick={clear}
           >
             <EraserIcon data-icon="inline-start" />
@@ -244,7 +171,6 @@ export function QueryView() {
             maxLength={MAX_QUERY_LENGTH}
             onChange={(value) => setDraft(connection.id, value)}
             onRun={() => void run()}
-            onSave={save}
             onLimitExceeded={() =>
               setError(
                 `Query is too long (maximum ${MAX_QUERY_LENGTH.toLocaleString()} characters).`,
@@ -264,26 +190,7 @@ export function QueryView() {
         )}
       </section>
 
-      <QuerySidebar
-        connectionId={connection.id}
-        tab={sidebarTab}
-        onTabChange={setSidebarTab}
-        activeSavedId={activeSaved?.id ?? null}
-        dirty={dirty}
-        onSelectSaved={loadSaved}
-        onSelectHistory={loadHistory}
-      />
-
-      <SaveQueryDialog
-        open={saving}
-        connectionId={connection.id}
-        sql={draft}
-        onOpenChange={setSaving}
-        onSaved={() => {
-          setSidebarTab("saved");
-          window.requestAnimationFrame(() => editorRef.current?.focus());
-        }}
-      />
+      <QuerySidebar connectionId={connection.id} onSelectHistory={loadEditor} />
     </div>
   );
 }

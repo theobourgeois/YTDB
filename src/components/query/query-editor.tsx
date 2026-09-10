@@ -84,18 +84,15 @@ export const QueryEditor = forwardRef<
     maxLength: number;
     onChange: (value: string) => void;
     onRun: () => void;
-    onSave: () => void;
     onLimitExceeded: () => void;
   }
 >(function QueryEditor(
-  { value, schema, maxLength, onChange, onRun, onSave, onLimitExceeded },
+  { value, schema, maxLength, onChange, onRun, onLimitExceeded },
   ref,
 ) {
   const viewRef = useRef<EditorView | null>(null);
   const runRef = useRef(onRun);
   runRef.current = onRun;
-  const saveRef = useRef(onSave);
-  saveRef.current = onSave;
   const limitRef = useRef(onLimitExceeded);
   limitRef.current = onLimitExceeded;
 
@@ -116,14 +113,6 @@ export const QueryEditor = forwardRef<
             key: "Mod-Enter",
             run: () => {
               runRef.current();
-              return true;
-            },
-          },
-          {
-            key: "Mod-s",
-            preventDefault: true,
-            run: () => {
-              saveRef.current();
               return true;
             },
           },
