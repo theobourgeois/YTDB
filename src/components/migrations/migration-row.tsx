@@ -16,6 +16,7 @@ import { transactionBadge, transactionNote } from "@/lib/migrations/sql";
 import type { LedgerEntry, MigrationStep, StepStatus } from "@/lib/migrations/types";
 import type { Connection } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { SqlDiff } from "./sql-diff";
 
 /** Width of one environment column. Shared with the table header so the two line up. */
 export const ENVIRONMENT_COLUMN = "w-24";
@@ -40,6 +41,19 @@ export type RowActions = {
   onOpenInEditor: (sql: string) => void;
 };
 
+/**
+ * What a drifted migration's file is compared against: the SQL one database
+ * actually ran. `appliedSql` is undefined while it is being read, and null when
+ * that database's ledger did not keep it.
+ */
+export type DriftSource = {
+  connectionName: string;
+  appliedSql: string | null | undefined;
+  error: string | null;
+};
+
+type Pane = "apply" | "revert" | "changes";
+
 type Props = {
   step: MigrationStep;
   environments: EnvironmentStatus[];
@@ -52,9 +66,50 @@ type Props = {
   busy: boolean;
   /** False when the files come straight from disk, so nothing here can add, replace or remove one. */
   editable?: boolean;
+  /** Set when some environment ran a different version of this file. */
+  drift: DriftSource | null;
+  selected: boolean;
+  /** `range` is true for a shift-click, which selects everything from the last one picked. */
+  onSelect: (range: boolean) => void;
   onToggle: () => void;
   actions: RowActions;
 };
+
+/** A checkbox for picking rows, `mixed` when only some of what it stands for is picked. */
+export function SelectBox({
+  checked,
+  label,
+  onToggle,
+}: {
+  checked: boolean | "mixed";
+  label: string;
+  onToggle: (range: boolean) => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={checked}
+      aria-label={label}
+      title={label}
+      // Shift-click picks a range; without this it also selects the text between.
+      onMouseDown={(event) => event.shiftKey && event.preventDefault()}
+      onClick={(event) => onToggle(event.shiftKey)}
+      className={cn(
+        "flex size-4 shrink-0 cursor-pointer items-center justify-center rounded-[5px] border outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/60",
+        checked
+          ? "border-foreground bg-foreground text-background"
+          : "border-input hover:border-foreground/50",
+      )}
+    >
+      {checked === "mixed" ? (
+        <MinusIcon className="size-3" />
+      ) : checked ? (
+        <CheckIcon className="size-3" />
+      ) : null}
+    </button>
+  );
+}
 
 const STATUS_LABEL: Record<StepStatus, string> = {
   applied: "applied",
@@ -91,17 +146,23 @@ export function MigrationRow({
   expanded,
   busy,
   editable = true,
+  drift,
+  selected,
+  onSelect,
   onToggle,
   actions,
 }: Props) {
-  const [pane, setPane] = useState<"apply" | "revert">("apply");
+  // Null until a pane is picked: a drifted row opens on its changes, any other on its SQL.
+  const [picked, setPicked] = useState<Pane | null>(null);
+  const pane: Pane = picked === "changes" && !drift ? "apply" : (picked ?? (drift ? "changes" : "apply"));
+  const sqlPane = pane === "revert" ? "revert" : "apply";
   const [copied, setCopied] = useState(false);
-  const sql = pane === "revert" ? (step.revertSql ?? "") : step.applySql;
+  const sql = sqlPane === "revert" ? (step.revertSql ?? "") : step.applySql;
   const badge = transactionBadge(step.transaction);
   const note = transactionNote(step.transaction);
 
   const notes: string[] = [];
-  if (status === "drifted") {
+  if (status === "drifted" && pane !== "changes") {
     notes.push("This file changed after it was applied here, so it is no longer the migration that ran.");
   }
   if (note) notes.push(note);
@@ -114,7 +175,20 @@ export function MigrationRow({
 
   return (
     <div className="border-b last:border-b-0">
-      <div className={cn("flex h-10 items-center transition-colors hover:bg-muted/40", busy && "opacity-60")}>
+      <div
+        className={cn(
+          "flex h-10 items-center transition-colors hover:bg-muted/40",
+          selected && "bg-muted/30",
+          busy && "opacity-60",
+        )}
+      >
+        <span className="flex h-10 shrink-0 items-center pl-3">
+          <SelectBox
+            checked={selected}
+            label={selected ? `Deselect ${step.version}` : `Select ${step.version}`}
+            onToggle={onSelect}
+          />
+        </span>
         <button
           type="button"
           aria-expanded={expanded}
@@ -219,11 +293,11 @@ export function MigrationRow({
               )}
               <DropdownMenuItem onClick={() => actions.onOpenInEditor(sql)}>
                 <TerminalIcon />
-                Open {pane} SQL in editor
+                Open {sqlPane} SQL in editor
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => void copy()}>
                 <CopyIcon />
-                Copy {pane} SQL
+                Copy {sqlPane} SQL
               </DropdownMenuItem>
               {editable && (
                 <>
@@ -244,19 +318,33 @@ export function MigrationRow({
             <PaneToggle
               label={`SQL for ${step.version}`}
               value={pane}
-              onChange={setPane}
+              onChange={setPicked}
               options={[
-                { value: "apply", label: "Apply" },
-                { value: "revert", label: "Revert" },
+                ...(drift ? [{ value: "changes" as const, label: "Changes" }] : []),
+                { value: "apply" as const, label: "Apply" },
+                { value: "revert" as const, label: "Revert" },
               ]}
             />
-            <span className="min-w-0 truncate font-mono text-[11px] text-muted-foreground">
-              {pane === "revert" ? (step.revertPath ?? "no revert file") : step.applyPath}
-            </span>
-            <Button size="xs" variant="ghost" className="ml-auto" onClick={() => void copy()}>
-              {copied ? <CheckIcon data-icon="inline-start" /> : <CopyIcon data-icon="inline-start" />}
-              {copied ? "Copied" : "Copy"}
-            </Button>
+            {pane === "changes" && drift ? (
+              <span className="flex min-w-0 items-center gap-3 font-mono text-[11px]">
+                <span className="shrink-0 text-red-600 dark:text-red-400">
+                  − ran on {drift.connectionName}
+                </span>
+                <span className="truncate text-emerald-600 dark:text-emerald-400">
+                  + {step.applyPath}
+                </span>
+              </span>
+            ) : (
+              <span className="min-w-0 truncate font-mono text-[11px] text-muted-foreground">
+                {pane === "revert" ? (step.revertPath ?? "no revert file") : step.applyPath}
+              </span>
+            )}
+            {pane !== "changes" && (
+              <Button size="xs" variant="ghost" className="ml-auto" onClick={() => void copy()}>
+                {copied ? <CheckIcon data-icon="inline-start" /> : <CopyIcon data-icon="inline-start" />}
+                {copied ? "Copied" : "Copy"}
+              </Button>
+            )}
           </div>
           {notes.length > 0 && (
             <ul className="space-y-1 px-3 pb-2">
@@ -271,7 +359,21 @@ export function MigrationRow({
               ))}
             </ul>
           )}
-          {sql ? (
+          {pane === "changes" && drift ? (
+            drift.error ? (
+              <p className="px-3 pb-3 font-mono text-xs text-destructive">{drift.error}</p>
+            ) : drift.appliedSql === undefined ? (
+              <p className="px-3 pb-3 text-xs text-muted-foreground">
+                Reading what ran on {drift.connectionName}…
+              </p>
+            ) : drift.appliedSql === null ? (
+              <p className="px-3 pb-3 text-xs text-muted-foreground">
+                {drift.connectionName} did not keep the SQL it ran, so there is nothing to compare against.
+              </p>
+            ) : (
+              <SqlDiff before={drift.appliedSql} after={step.applySql} className="max-h-96 pb-2" />
+            )
+          ) : sql ? (
             <SqlCode sql={sql} className="max-h-72 overflow-auto px-3 pb-3" />
           ) : (
             <div className="flex items-center gap-2 px-3 pb-3 text-xs text-muted-foreground">

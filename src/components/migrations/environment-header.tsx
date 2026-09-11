@@ -13,7 +13,7 @@ import type { SetSummary } from "@/lib/migrations/status";
 import type { LedgerResult } from "@/lib/migrations/types";
 import type { Connection } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { ACTION_COLUMN, ENVIRONMENT_COLUMN } from "./migration-row";
+import { ACTION_COLUMN, ENVIRONMENT_COLUMN, SelectBox } from "./migration-row";
 
 export type Environment = {
   connection: Connection;
@@ -78,6 +78,7 @@ export function EnvironmentHeader({
   targetId,
   caption,
   loading,
+  selection,
   onSelect,
   onCompare,
 }: {
@@ -85,12 +86,21 @@ export function EnvironmentHeader({
   targetId: string;
   caption: string;
   loading: boolean;
+  /** The select-all box over the rows' own. */
+  selection: { checked: boolean | "mixed"; onToggle: () => void };
   onSelect: (connectionId: string) => void;
   onCompare: (connectionId: string) => void;
 }) {
   return (
     <div className="flex h-11 shrink-0 items-center border-b bg-muted/20">
-      <span className="min-w-0 flex-1 truncate px-3 text-xs text-muted-foreground">{caption}</span>
+      <span className="flex h-11 shrink-0 items-center pl-3">
+        <SelectBox
+          checked={selection.checked}
+          label={selection.checked ? "Clear selection" : "Select all"}
+          onToggle={() => selection.onToggle()}
+        />
+      </span>
+      <span className="min-w-0 flex-1 truncate px-2 text-xs text-muted-foreground">{caption}</span>
       {environments.map((environment) => {
         const { connection, summary, ledger, error } = environment;
         const target = connection.id === targetId;

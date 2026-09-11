@@ -129,6 +129,41 @@ export function revertPlan(
   return { steps, blockedBy: null };
 }
 
+/**
+ * The selected steps still pending, oldest first. A selection is a deliberate
+ * choice, so unlike `applyPlan` it may leave a gap below what it applies.
+ */
+export function selectedApplyPlan(
+  set: MigrationSet | null,
+  ledger: LedgerResult | null | undefined,
+  versions: Set<string>,
+): RunPlan {
+  if (!set || !ledger) return EMPTY_PLAN;
+  return {
+    steps: set.steps.filter(
+      (step) => versions.has(step.version) && stepStatus(step, ledger) === "pending",
+    ),
+    blockedBy: null,
+  };
+}
+
+/** The selected steps applied here, newest first, stopping at the first with no revert file. */
+export function selectedRevertPlan(
+  set: MigrationSet | null,
+  ledger: LedgerResult | null | undefined,
+  versions: Set<string>,
+): RunPlan {
+  if (!set || !ledger) return EMPTY_PLAN;
+  const applied = index(ledger);
+  const steps: MigrationStep[] = [];
+  for (const step of [...set.steps].reverse()) {
+    if (!versions.has(step.version) || !applied.has(step.version)) continue;
+    if (!step.revertSql) return { steps, blockedBy: step };
+    steps.push(step);
+  }
+  return { steps, blockedBy: null };
+}
+
 /** The step a single-row Revert button undoes: the newest applied one. */
 export function newestApplied(
   set: MigrationSet | null,

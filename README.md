@@ -142,6 +142,14 @@ environment's column, which opens that connection. **Apply** on a row runs every
 to and including it, so a target can never end up with a gap in the middle; the `⋯` menu has
 *apply only this one* for the rare out-of-order case, and *revert back through here* going the other way.
 
+To run a handful, tick them — the box in the column header selects them all, and shift-click ticks
+everything between. While anything is ticked, the header's Apply, *Mark as already applied*, and
+*Revert* cover only the ticked ones, in order, and the selection clears once they have all run.
+
+A file edited after a database ran it is flagged as drifted, and opening its row shows **Changes**: a
+git-style diff of the SQL that database actually ran — kept in its ledger — against the file as it
+is now.
+
 ### Which environments have which migrations
 
 Each database keeps its own ledger in `maintenance.ytdb_migrations`, written as part of the same

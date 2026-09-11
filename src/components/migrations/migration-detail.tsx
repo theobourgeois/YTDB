@@ -25,6 +25,8 @@ import {
   newestApplied,
   revertPlan,
   scopeLedger,
+  selectedApplyPlan,
+  selectedRevertPlan,
   stepStatus,
   summarize,
   type RunPlan,
@@ -49,7 +51,7 @@ import { MigrationsFooter, type MigrationsPane } from "./migrations-footer";
 import { MigrationDropZone, useMigrationImport, type FolderDrop } from "./migration-import";
 import { MigrationNameDialog } from "./migration-name-dialog";
 import { MigrationNoteDialog } from "./note-dialog";
-import { MigrationRow, StatusMark } from "./migration-row";
+import { MigrationRow, StatusMark, type DriftSource } from "./migration-row";
 import { MigrationRunDialog, type RunProgress } from "./run-dialog";
 import { useRepo } from "./use-repo";
 
@@ -88,6 +90,9 @@ export function MigrationDetail({ setId }: { setId: string }) {
 
   const [pane, setPane] = useState<MigrationsPane>("migrations");
   const [expanded, setExpanded] = useState<string[]>([]);
+  /** Versions picked with the rows' checkboxes; while any are, the header's actions cover only them. */
+  const [selected, setSelected] = useState<string[]>([]);
+  const lastPickedRef = useRef<string | null>(null);
   const [pendingRun, setPendingRun] = useState<PendingRun | null>(null);
   const [progress, setProgress] = useState<RunProgress[] | null>(null);
   const [running, setRunning] = useState(false);
@@ -151,6 +156,42 @@ export function MigrationDetail({ setId }: { setId: string }) {
         };
       }),
     [environmentConnections, ledgers.data, activeSet, setName],
+  );
+
+  // The SQL a database ran is the whole of every file, far more than the list
+  // needs, so it is only read for databases a row open on a drifted migration asks about.
+  const driftConnections = useMemo(() => {
+    const ids = new Set<string>();
+    for (const step of activeSet?.steps ?? []) {
+      if (!expanded.includes(step.version)) continue;
+      for (const environment of environments) {
+        if (stepStatus(step, environment.ledger) === "drifted") ids.add(environment.connection.id);
+      }
+    }
+    return environmentConnections.filter((item) => ids.has(item.id));
+  }, [activeSet, expanded, environments, environmentConnections]);
+
+  const stored = useAsync<Record<string, LedgerRead>>(
+    `stored:${ledgerSchema}:${driftConnections.map((item) => item.url).join("|")}`,
+    async (signal) => {
+      const reads = await Promise.all(
+        driftConnections.map(async (item): Promise<[string, LedgerRead]> => {
+          try {
+            return [
+              item.id,
+              { ledger: await api.ledger(item.url, ledgerSchema, signal, true), error: null },
+            ];
+          } catch (caught) {
+            if (signal.aborted) throw caught;
+            return [
+              item.id,
+              { ledger: null, error: caught instanceof Error ? caught.message : String(caught) },
+            ];
+          }
+        }),
+      );
+      return Object.fromEntries(reads);
+    },
   );
 
   const indexHref = `/${encodeURIComponent(connection.id)}/migrations`;
@@ -281,11 +322,15 @@ export function MigrationDetail({ setId }: { setId: string }) {
 
     setRunning(false);
     ledgers.reload();
+    stored.reload();
     tables.reload();
+    // A selection that ran cleanly is done with; one that stopped is kept to retry.
+    if (steps.every((item) => item.status === "ok")) setSelected([]);
   }
 
   function reload() {
     ledgers.reload();
+    stored.reload();
     if (fromDisk) repo.reload();
   }
 
@@ -336,6 +381,53 @@ export function MigrationDetail({ setId }: { setId: string }) {
     setLastImport(report);
   }
 
+  /** Picks or drops one row; a shift-click does the same to everything since the last one picked. */
+  function toggleSelect(version: string, range: boolean) {
+    if (!activeSet) return;
+    const versions = activeSet.steps.map((step) => step.version);
+    const anchor = lastPickedRef.current;
+    lastPickedRef.current = version;
+    setSelected((current) => {
+      const on = !current.includes(version);
+      let targets = [version];
+      if (range && anchor && anchor !== version && versions.includes(anchor)) {
+        const [from, to] = [versions.indexOf(anchor), versions.indexOf(version)].sort((a, b) => a - b);
+        targets = versions.slice(from, to + 1);
+      }
+      const next = new Set(current);
+      for (const target of targets) {
+        if (on) next.add(target);
+        else next.delete(target);
+      }
+      return versions.filter((item) => next.has(item));
+    });
+  }
+
+  function toggleSelectAll() {
+    if (!activeSet) return;
+    const versions = activeSet.steps.map((step) => step.version);
+    setSelected((current) => (current.some((item) => versions.includes(item)) ? [] : versions));
+  }
+
+  /** What a drifted row is compared against: the target's run if it drifted there, else the first that did. */
+  function driftFor(step: MigrationStep): DriftSource | null {
+    const drifted = environments.filter(
+      (environment) => stepStatus(step, environment.ledger) === "drifted",
+    );
+    const source =
+      drifted.find((environment) => environment.connection.id === connection.id) ?? drifted[0];
+    if (!source) return null;
+    const read = stored.data?.[source.connection.id];
+    const entry = read?.ledger?.entries.find(
+      (item) => item.setName === setName && item.version === step.version,
+    );
+    return {
+      connectionName: source.connection.name,
+      appliedSql: read?.ledger ? (entry?.applySql ?? null) : undefined,
+      error: read?.error ?? null,
+    };
+  }
+
   function toggleRow(version: string) {
     setExpanded((current) =>
       current.includes(version)
@@ -371,8 +463,15 @@ export function MigrationDetail({ setId }: { setId: string }) {
     );
   }
 
-  const applyAll = applyPlan(activeSet, currentLedger);
-  const revertAll = revertPlan(activeSet, currentLedger);
+  const selectedVersions = new Set(selected);
+  const selectedCount = activeSet.steps.filter((step) => selectedVersions.has(step.version)).length;
+  const selecting = selectedCount > 0;
+  const applyAll = selecting
+    ? selectedApplyPlan(activeSet, currentLedger, selectedVersions)
+    : applyPlan(activeSet, currentLedger);
+  const revertAll = selecting
+    ? selectedRevertPlan(activeSet, currentLedger, selectedVersions)
+    : revertPlan(activeSet, currentLedger);
   const busy = running || ledgers.loading || repo.loading;
 
   return (
@@ -437,7 +536,9 @@ export function MigrationDetail({ setId }: { setId: string }) {
                 onClick={() => start("revert", revertAll)}
               >
                 <UndoIcon />
-                Revert everything on {connection.name}
+                {selecting
+                  ? `Revert ${revertAll.steps.length} selected on ${connection.name}`
+                  : `Revert everything on ${connection.name}`}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => setEditingNote(true)}>
@@ -474,8 +575,10 @@ export function MigrationDetail({ setId }: { setId: string }) {
           >
             <PlayIcon data-icon="inline-start" />
             {applyAll.steps.length === 0
-              ? "Up to date"
-              : `Apply ${applyAll.steps.length} to ${connection.name}`}
+              ? selecting
+                ? "Nothing selected to apply"
+                : "Up to date"
+              : `Apply ${applyAll.steps.length}${selecting ? " selected" : ""} to ${connection.name}`}
           </Button>
         </div>
       </Header>
@@ -514,8 +617,17 @@ export function MigrationDetail({ setId }: { setId: string }) {
           <EnvironmentHeader
             environments={environments}
             targetId={connection.id}
-            caption={listCaption(summary, ledgers.loading)}
+            caption={selecting ? `${selectedCount} selected` : listCaption(summary, ledgers.loading)}
             loading={ledgers.loading}
+            selection={{
+              checked:
+                selectedCount === 0
+                  ? false
+                  : selectedCount === activeSet.steps.length
+                    ? true
+                    : "mixed",
+              onToggle: toggleSelectAll,
+            }}
             onSelect={runAgainst}
             onCompare={compareWith}
           />
@@ -554,6 +666,9 @@ export function MigrationDetail({ setId }: { setId: string }) {
                 expanded={expanded.includes(step.version)}
                 busy={busy}
                 editable={!fromDisk}
+                drift={driftFor(step)}
+                selected={selectedVersions.has(step.version)}
+                onSelect={(range) => toggleSelect(step.version, range)}
                 onToggle={() => toggleRow(step.version)}
                 actions={{
                   // Applying a row applies everything still pending up to it, so
