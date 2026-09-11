@@ -77,8 +77,8 @@ export function MigrationDetail({ setId }: { setId: string }) {
   const importedSet = useMigrationSet(setId);
   // A set from the folder is re-read from disk here, the same as on the index,
   // so this page never shows a version of the files that is no longer there.
-  const { root } = useRepoRoot(connection.id);
-  const repo = useRepo(isRepoSetId(setId) ? root : null);
+  const { root, checkout } = useRepoRoot(connection.id);
+  const repo = useRepo(isRepoSetId(setId) ? root : null, checkout);
   const activeSet = isRepoSetId(setId)
     ? (repo.data?.sets.find((candidate) => candidate.id === setId) ?? null)
     : importedSet;
@@ -491,6 +491,13 @@ export function MigrationDetail({ setId }: { setId: string }) {
           >
             <FolderOpenIcon className="size-3.5 shrink-0" />
             <span className="max-w-48 truncate font-mono">{activeSet.source.path}</span>
+            {/* The branch the SQL comes from, since a worktree's may not be merged yet. */}
+            {repo.data?.git && (
+              <span className="shrink-0 rounded border px-1.5 font-mono text-[10px]">
+                {repo.data.git.branch}
+                {repo.data.git.dirty && "*"}
+              </span>
+            )}
           </span>
         )}
         <TargetPicker

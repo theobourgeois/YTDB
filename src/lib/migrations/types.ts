@@ -88,15 +88,32 @@ export function isRepoSetId(id: string): boolean {
   return id.startsWith(REPO_SET_ID_PREFIX);
 }
 
+/**
+ * One checkout of the repository the migrations folder is in — the main one or a
+ * git worktree — that has the same folder at the same place inside it.
+ */
+export type RepoCheckout = {
+  /** The checkout's top folder. */
+  path: string;
+  /** The branch it has checked out, or the short commit when it is detached. */
+  branch: string;
+  /** True for the repository's main checkout rather than a worktree. */
+  main: boolean;
+};
+
 /** What the local bridge found in a migrations folder. */
 export type RepoRead = {
-  /** The folder as resolved on disk, `~` expanded. */
+  /** The folder actually read, `~` expanded — inside the picked checkout, when there is one. */
   root: string;
   sets: MigrationSet[];
   /** Files at the root that were read but could not be placed. */
   skipped: string[];
   /** The checkout the folder sits in, when it is inside a git repository. */
   git: { branch: string; commit: string; dirty: boolean } | null;
+  /** Every checkout that has this folder, main first; empty outside git. */
+  checkouts: RepoCheckout[];
+  /** Top folder of the checkout that was read, one of `checkouts`. */
+  checkout: string | null;
 };
 
 /** One ledger row to write without running anything, when adopting a folder wholesale. */

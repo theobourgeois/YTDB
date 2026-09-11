@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
-import { ChevronDownIcon, ChevronRightIcon, FolderOpenIcon, MoreIcon, NoteIcon, RefreshIcon, StackIcon, PlusIcon, ClipboardCheckIcon, WarningIcon, XIcon } from "@/components/icons";
+import { CaretUpDownIcon, ChevronDownIcon, ChevronRightIcon, FolderOpenIcon, MoreIcon, NoteIcon, RefreshIcon, StackIcon, PlusIcon, ClipboardCheckIcon, WarningIcon, XIcon } from "@/components/icons";
 import { ConnectionColorMark } from "@/components/connections/connection-color";
 import { useExplorerContext } from "@/components/explorer/explorer-provider";
 import { ViewHeader } from "@/components/explorer/view-header";
@@ -31,7 +31,7 @@ import {
   type DiscoveredMigration,
   type SetSummary,
 } from "@/lib/migrations/status";
-import type { AdoptEntry, LedgerResult, MigrationSet } from "@/lib/migrations/types";
+import type { AdoptEntry, LedgerResult, MigrationSet, RepoCheckout } from "@/lib/migrations/types";
 import { useSharedLayoutPartners } from "@/lib/store/explorer";
 import {
   useListFilter,
@@ -79,11 +79,12 @@ export function MigrationsIndex() {
   const environmentConnections = useMemo(() => [connection, ...partners], [connection, partners]);
   const ledgerKey = environmentConnections.map((item) => item.url).join("|");
 
-  const { scope, root } = useRepoRoot(connection.id);
+  const { scope, root, checkout } = useRepoRoot(connection.id);
   const setRepoRoot = useMigrations((state) => state.setRepoRoot);
+  const setRepoCheckout = useMigrations((state) => state.setRepoCheckout);
   const filter = useListFilter(scope);
   const setListFilter = useMigrations((state) => state.setListFilter);
-  const repo = useRepo(root);
+  const repo = useRepo(root, checkout);
   const repoSets = useMemo(
     () => [...(repo.data?.sets ?? [])].sort((a, b) => b.importedAt - a.importedAt),
     [repo.data],
@@ -292,7 +293,14 @@ export function MigrationsIndex() {
         <StackIcon className="size-4 shrink-0 text-muted-foreground" />
         <span className="font-medium">Migrations</span>
         {root && (
-          <FolderCaption root={root} git={repo.data?.git ?? null} onEdit={() => setEditingRoot(true)} />
+          <FolderCaption
+            root={repo.data?.root ?? root}
+            git={repo.data?.git ?? null}
+            checkouts={repo.data?.checkouts ?? []}
+            checkout={repo.data?.checkout ?? null}
+            onEdit={() => setEditingRoot(true)}
+            onPick={(path) => setRepoCheckout(scope, path)}
+          />
         )}
         <div className="ml-auto flex items-center gap-1">
           <Button
@@ -609,32 +617,73 @@ function FilterBar({
   );
 }
 
-/** Where the list is being read from, and which branch that folder is on right now. */
+/**
+ * Where the list is being read from, and which branch that folder is on right
+ * now. When the repository has other worktrees with the same folder, the branch
+ * opens a list of them to read from instead.
+ */
 function FolderCaption({
   root,
   git,
+  checkouts,
+  checkout,
   onEdit,
+  onPick,
 }: {
   root: string;
   git: { branch: string; commit: string; dirty: boolean } | null;
+  checkouts: RepoCheckout[];
+  checkout: string | null;
   onEdit: () => void;
+  onPick: (path: string) => void;
 }) {
+  const hover =
+    "cursor-pointer rounded-md outline-none hover:bg-muted/60 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60";
+  const branch = git && (
+    <span className="shrink-0 rounded border px-1.5 font-mono text-[10px]">
+      {git.branch}
+      {git.dirty && "*"}
+    </span>
+  );
+
   return (
-    <button
-      type="button"
-      title={`Reading from ${root}${git ? ` on ${git.branch} (${git.commit}${git.dirty ? ", uncommitted changes" : ""})` : ""}. Click to change.`}
-      onClick={onEdit}
-      className="flex min-w-0 cursor-pointer items-center gap-1.5 rounded-md px-1.5 py-0.5 text-xs text-muted-foreground outline-none hover:bg-muted/60 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60"
-    >
-      <FolderOpenIcon className="size-3.5 shrink-0" />
-      <span className="max-w-64 truncate font-mono text-[11px]">{shortenPath(root)}</span>
-      {git && (
-        <span className="shrink-0 rounded border px-1.5 font-mono text-[10px]">
-          {git.branch}
-          {git.dirty && "*"}
-        </span>
+    <div className="flex min-w-0 items-center text-xs text-muted-foreground">
+      <button
+        type="button"
+        title={`Reading from ${root}. Click to change.`}
+        onClick={onEdit}
+        className={cn("flex min-w-0 items-center gap-1.5 px-1.5 py-0.5", hover)}
+      >
+        <FolderOpenIcon className="size-3.5 shrink-0" />
+        <span className="max-w-64 truncate font-mono text-[11px]">{shortenPath(root)}</span>
+      </button>
+      {git && checkouts.length > 1 ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            title={`${git.branch} (${git.commit}${git.dirty ? ", uncommitted changes" : ""}). Read from another worktree.`}
+            className={cn("flex shrink-0 items-center gap-0.5 px-1 py-0.5", hover)}
+          >
+            {branch}
+            <CaretUpDownIcon className="size-3" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="min-w-56">
+            <DropdownMenuRadioGroup value={checkout ?? ""} onValueChange={(value) => onPick(value as string)}>
+              {checkouts.map((item) => (
+                <DropdownMenuRadioItem key={item.path} value={item.path} title={item.path}>
+                  <span className="font-mono text-xs">{item.branch}</span>
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : (
+        git && (
+          <span className="px-1" title={`${git.branch} (${git.commit}${git.dirty ? ", uncommitted changes" : ""})`}>
+            {branch}
+          </span>
+        )
       )}
-    </button>
+    </div>
   );
 }
 

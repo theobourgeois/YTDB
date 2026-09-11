@@ -63,6 +63,12 @@ type MigrationsState = {
    */
   repoRoots: Record<string, string>;
   setRepoRoot: (scope: string, root: string | null) => void;
+  /**
+   * The git worktree each scope reads its folder out of instead, by the
+   * checkout's top folder. Unset means the folder exactly as saved.
+   */
+  repoCheckouts: Record<string, string>;
+  setRepoCheckout: (scope: string, checkout: string | null) => void;
   /** How the list is narrowed, kept per set of environments so it is still there next visit. */
   listFilters: Record<string, ListFilter>;
   setListFilter: (scope: string, patch: Partial<ListFilter>) => void;
@@ -108,7 +114,19 @@ export const useMigrations = create<MigrationsState>()(
           if (clean) repoRoots[scope] = clean;
           else delete repoRoots[scope];
           logUiAction("migrations.folder", { set: Boolean(clean) });
-          return { repoRoots };
+          // A new folder may be another repository entirely, so the picked worktree goes with the old one.
+          const repoCheckouts = { ...state.repoCheckouts };
+          delete repoCheckouts[scope];
+          return { repoRoots, repoCheckouts };
+        }),
+      repoCheckouts: {},
+      setRepoCheckout: (scope, checkout) =>
+        set((state) => {
+          const repoCheckouts = { ...state.repoCheckouts };
+          if (checkout) repoCheckouts[scope] = checkout;
+          else delete repoCheckouts[scope];
+          logUiAction("migrations.checkout", { set: Boolean(checkout) });
+          return { repoCheckouts };
         }),
       createSet: (name) => {
         const created = emptySet(name);
@@ -200,11 +218,19 @@ export function useListFilter(scope: string): ListFilter {
   return useMigrations((state) => state.listFilters[scope] ?? DEFAULT_LIST_FILTER);
 }
 
-/** The folder this connection's environments read migrations from, if one is set. */
-export function useRepoRoot(connectionId: string): { scope: string; root: string | null } {
+/**
+ * The folder this connection's environments read migrations from, if one is
+ * set, and the worktree it is read out of when one was picked.
+ */
+export function useRepoRoot(connectionId: string): {
+  scope: string;
+  root: string | null;
+  checkout: string | null;
+} {
   const scope = useConnections(
     (state) => state.connections.find((item) => item.id === connectionId)?.layoutGroup ?? connectionId,
   );
   const root = useMigrations((state) => state.repoRoots[scope] ?? null);
-  return { scope, root };
+  const checkout = useMigrations((state) => state.repoCheckouts[scope] ?? null);
+  return { scope, root, checkout };
 }

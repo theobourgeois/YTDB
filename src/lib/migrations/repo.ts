@@ -1,6 +1,6 @@
 import "server-only";
 import { execFile } from "node:child_process";
-import { readdir, readFile, stat, unlink, writeFile } from "node:fs/promises";
+import { readdir, readFile, realpath, stat, unlink, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, isAbsolute, join, relative, resolve } from "node:path";
 import { promisify } from "node:util";
@@ -10,6 +10,7 @@ import {
   repoSetId,
   type MigrationSet,
   type NoteResult,
+  type RepoCheckout,
   type RepoRead,
 } from "./types";
 
@@ -145,6 +146,71 @@ async function describeCheckout(root: string): Promise<RepoRead["git"]> {
   return { branch, commit: commit ?? "", dirty: Boolean(status) };
 }
 
+type Checkouts = {
+  list: RepoCheckout[];
+  /** Where the folder sits inside any one checkout, like `src/lib/supabase/migrations`. */
+  subpath: string;
+  /** Top folder of the checkout the saved folder itself is in. */
+  current: string;
+};
+
+/**
+ * Every checkout of the repository `folder` is in — the main one and each git
+ * worktree — that has the same folder at the same place. Git already knows them
+ * all, so a new worktree shows up here without being pointed at.
+ */
+async function findCheckouts(folder: string): Promise<Checkouts | null> {
+  const [top, listing] = await Promise.all([
+    git(folder, ["rev-parse", "--show-toplevel"]),
+    git(folder, ["worktree", "list", "--porcelain"]),
+  ]);
+  if (!top || listing === null) return null;
+  // Git answers with the real path, so the saved one is resolved the same way before comparing.
+  const subpath = relative(top, await realpath(folder));
+
+  const found: { path: string; branch: string; usable: boolean }[] = [];
+  for (const block of listing.split(/\n\s*\n/)) {
+    const lines = block.split("\n");
+    const path = lines.find((line) => line.startsWith("worktree "))?.slice("worktree ".length);
+    if (!path) continue;
+    const ref = lines.find((line) => line.startsWith("branch "))?.slice("branch ".length);
+    const head = lines.find((line) => line.startsWith("HEAD "))?.slice("HEAD ".length) ?? "";
+    found.push({
+      path,
+      branch: ref ? ref.replace(/^refs\/heads\//, "") : head.slice(0, 7),
+      usable: !lines.some((line) => line === "bare" || line.startsWith("prunable")),
+    });
+  }
+
+  const list: RepoCheckout[] = [];
+  for (const [index, item] of found.entries()) {
+    if (!item.usable || !(await isDirectory(join(item.path, subpath)))) continue;
+    list.push({ path: item.path, branch: item.branch, main: index === 0 });
+  }
+  return { list, subpath, current: top };
+}
+
+/**
+ * Reads a migrations folder, from the checkout named by `checkoutInput` when it
+ * is another worktree of the same repository. A checkout that has since been
+ * removed falls back to the folder as saved rather than failing.
+ */
+export async function readRepo(input: string, checkoutInput: string | null = null): Promise<RepoRead> {
+  const saved = resolveRoot(input);
+  const checkouts = (await isDirectory(saved)) ? await findCheckouts(saved) : null;
+  const picked = checkoutInput
+    ? checkouts?.list.find((candidate) => candidate.path === resolve(checkoutInput))
+    : undefined;
+  const root = picked && checkouts ? join(picked.path, checkouts.subpath) : saved;
+  const read = await readFolder(root);
+  return {
+    ...read,
+    git: await describeCheckout(root),
+    checkouts: checkouts?.list ?? [],
+    checkout: picked?.path ?? checkouts?.current ?? null,
+  };
+}
+
 /**
  * Reads a migrations folder straight off the disk.
  *
@@ -154,8 +220,7 @@ async function describeCheckout(root: string): Promise<RepoRead["git"]> {
  * is what a flat folder of migrations means. Nothing is remembered between calls:
  * whatever branch is checked out is what comes back.
  */
-export async function readRepo(input: string): Promise<RepoRead> {
-  const root = resolveRoot(input);
+async function readFolder(root: string): Promise<Pick<RepoRead, "root" | "sets" | "skipped">> {
   if (!(await isDirectory(root))) throw new Error(`${root} is not a folder`);
 
   const entries = (await readdir(root, { withFileTypes: true })).sort((a, b) =>
@@ -206,7 +271,7 @@ export async function readRepo(input: string): Promise<RepoRead> {
     }
   }
 
-  return { root, sets, skipped, git: await describeCheckout(root) };
+  return { root, sets, skipped };
 }
 
 /**
@@ -215,7 +280,8 @@ export async function readRepo(input: string): Promise<RepoRead> {
  * migration can be written to, and only its note file; an empty note removes it.
  */
 export async function writeNote(rootInput: string, pathInput: string, text: string): Promise<NoteResult> {
-  const { root, sets } = await readRepo(rootInput);
+  // The root a set reports is the folder it was read from, worktree and all.
+  const { root, sets } = await readFolder(resolveRoot(rootInput));
   const dir = resolve(pathInput);
   const set = sets.find((candidate) => candidate.source?.path === dir);
   if (!set?.source) throw new Error(`${dir} is not a migration in ${root}`);

@@ -8,10 +8,11 @@ import type { RepoRead } from "@/lib/migrations/types";
  * The migrations folder, read fresh from disk every time the page needs it.
  * Nothing is cached across visits on purpose: switching branches changes what
  * is in the folder, and the list has to say so without being told.
+ * `checkout` reads the same folder out of another worktree of the repository.
  */
-export function useRepo(root: string | null): AsyncState<RepoRead | null> {
-  return useAsync<RepoRead | null>(`repo:${root ?? ""}`, async (signal) => {
+export function useRepo(root: string | null, checkout: string | null): AsyncState<RepoRead | null> {
+  return useAsync<RepoRead | null>(`repo:${root ?? ""}:${checkout ?? ""}`, async (signal) => {
     if (!root) return null;
-    return api.repo(root, signal);
+    return api.repo(root, checkout, signal);
   });
 }

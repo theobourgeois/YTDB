@@ -32,6 +32,7 @@ export const UI_ACTIONS = [
   "migrations.import",
   "migrations.remove",
   "migrations.folder",
+  "migrations.checkout",
 ] as const;
 
 export type ApiAction = (typeof API_ACTIONS)[number];

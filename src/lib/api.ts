@@ -121,7 +121,8 @@ export const api = {
   ) => post<{ results: DetectionResult[] }>("/api/detect", { connectionUrl, migrations }, signal),
 
   /** Reads a migrations folder from the machine the bridge runs on. */
-  repo: (root: string, signal?: AbortSignal) => post<RepoRead>("/api/repo", { root }, signal),
+  repo: (root: string, checkout: string | null, signal?: AbortSignal) =>
+    post<RepoRead>("/api/repo", { root, checkout }, signal),
 
   /** Writes a folder migration's note beside its SQL; an empty note removes the file. */
   note: (root: string, path: string, note: string, signal?: AbortSignal) =>
