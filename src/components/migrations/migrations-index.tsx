@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
-import { CaretUpDownIcon, ChevronDownIcon, ChevronRightIcon, FolderOpenIcon, MoreIcon, NoteIcon, RefreshIcon, StackIcon, PlusIcon, ClipboardCheckIcon, WarningIcon, XIcon } from "@/components/icons";
+import { CaretUpDownIcon, ChevronDownIcon, ChevronRightIcon, FolderOpenIcon, MoreIcon, NoteIcon, RefreshIcon, SearchIcon, StackIcon, PlusIcon, ClipboardCheckIcon, WarningIcon, XIcon } from "@/components/icons";
 import { ConnectionColorMark } from "@/components/connections/connection-color";
 import { useExplorerContext } from "@/components/explorer/explorer-provider";
 import { ViewHeader } from "@/components/explorer/view-header";
@@ -17,6 +17,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Combobox as ComboboxPrimitive } from "@base-ui/react";
+import {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxItem,
+  ComboboxList,
+} from "@/components/ui/combobox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { SearchField } from "@/components/ui/search-field";
 import { useAsync } from "@/hooks/use-async";
@@ -637,6 +645,15 @@ function FolderCaption({
   onEdit: () => void;
   onPick: (path: string) => void;
 }) {
+  const [query, setQuery] = useState("");
+  // The folder is searched too, so a Conductor workspace is found by its city as well as its branch.
+  const shown = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    if (!needle) return checkouts;
+    return checkouts.filter(
+      (item) => item.branch.toLowerCase().includes(needle) || item.path.toLowerCase().includes(needle),
+    );
+  }, [checkouts, query]);
   const hover =
     "cursor-pointer rounded-md outline-none hover:bg-muted/60 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60";
   const branch = git && (
@@ -658,24 +675,45 @@ function FolderCaption({
         <span className="max-w-64 truncate font-mono text-[11px]">{shortenPath(root)}</span>
       </button>
       {git && checkouts.length > 1 ? (
-        <DropdownMenu>
-          <DropdownMenuTrigger
+        <Combobox<RepoCheckout>
+          items={shown}
+          filter={null}
+          value={checkouts.find((item) => item.path === checkout) ?? null}
+          inputValue={query}
+          onInputValueChange={(next) => setQuery(next)}
+          // Each opening starts from the whole list, not whatever was typed last time.
+          onOpenChange={(open) => open && setQuery("")}
+          itemToStringLabel={(item) => item.branch}
+          isItemEqualToValue={(item, current) => item.path === current.path}
+          onValueChange={(item) => item && onPick(item.path)}
+        >
+          <ComboboxPrimitive.Trigger
             title={`${git.branch} (${git.commit}${git.dirty ? ", uncommitted changes" : ""}). Read from another worktree.`}
             className={cn("flex shrink-0 items-center gap-0.5 px-1 py-0.5", hover)}
           >
             {branch}
             <CaretUpDownIcon className="size-3" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="min-w-56">
-            <DropdownMenuRadioGroup value={checkout ?? ""} onValueChange={(value) => onPick(value as string)}>
-              {checkouts.map((item) => (
-                <DropdownMenuRadioItem key={item.path} value={item.path} title={item.path}>
+          </ComboboxPrimitive.Trigger>
+          <ComboboxContent className="w-max min-w-56">
+            <div className="m-1 mb-0 flex h-8 items-center gap-1.5 rounded-lg px-2 text-muted-foreground focus-within:bg-muted/60">
+              <SearchIcon className="size-3.5 shrink-0" />
+              <ComboboxPrimitive.Input
+                placeholder="Search worktrees"
+                spellCheck={false}
+                autoComplete="off"
+                className="h-full min-w-0 flex-1 bg-transparent text-[0.8rem] text-foreground outline-none placeholder:text-muted-foreground"
+              />
+            </div>
+            <ComboboxEmpty>No matching worktrees</ComboboxEmpty>
+            <ComboboxList>
+              {(item: RepoCheckout) => (
+                <ComboboxItem key={item.path} value={item} title={item.path}>
                   <span className="font-mono text-xs">{item.branch}</span>
-                </DropdownMenuRadioItem>
-              ))}
-            </DropdownMenuRadioGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
+                </ComboboxItem>
+              )}
+            </ComboboxList>
+          </ComboboxContent>
+        </Combobox>
       ) : (
         git && (
           <span className="px-1" title={`${git.branch} (${git.commit}${git.dirty ? ", uncommitted changes" : ""})`}>
