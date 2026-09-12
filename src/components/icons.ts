@@ -42,6 +42,7 @@ export {
   PiEyeSlash as EyeOffIcon,
   PiFileArrowUp as FileUploadIcon,
   PiFileCsv as CsvIcon,
+  PiFlask as FlaskIcon,
   PiFolderOpen as FolderOpenIcon,
   PiFolderSimple as FolderIcon,
   PiFolderSimplePlus as FolderPlusIcon,

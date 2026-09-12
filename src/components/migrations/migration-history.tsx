@@ -20,11 +20,13 @@ import { SearchField } from "@/components/ui/search-field";
 import { useAsync } from "@/hooks/use-async";
 import { api } from "@/lib/api";
 import type { HistoryEvent } from "@/lib/migrations/history";
-import { TIMELINE_KINDS, type TimelineEvent, type TimelineKind, type TimelineQuery } from "@/lib/migrations/timeline";
+import { TIMELINE_KINDS, type ResolveOutcome, type TimelineEvent, type TimelineKind, type TimelineQuery } from "@/lib/migrations/timeline";
+import type { MigrationStep } from "@/lib/migrations/types";
 import { useMigrations } from "@/lib/store/migrations";
 import type { Connection } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { SqlDiff } from "./sql-diff";
+import { UnconfirmedPanel } from "./unconfirmed-panel";
 import { useTimeline } from "./use-timeline";
 
 type Props = {
@@ -34,6 +36,20 @@ type Props = {
   loading: boolean;
   ledgerSchema: string;
   setName?: string;
+  /** The file a run came from, when the page has it, so an unconfirmed run can be settled with its fingerprint. */
+  findStep?: (setName: string, version: string) => MigrationStep | null;
+  /** Called when settling an unconfirmed run changed a ledger. */
+  onLedgerChange?: () => void;
+  /** Runs a migration again, once its unconfirmed run is settled as lost. */
+  onRetry?: (step: MigrationStep) => void;
+};
+
+/** What a row needs to settle an unconfirmed run. */
+type Settling = {
+  ledgerSchema: string;
+  findStep?: Props["findStep"];
+  onRetry?: Props["onRetry"];
+  onResolved: (outcome: ResolveOutcome) => void;
 };
 
 type Event = {
@@ -74,7 +90,7 @@ function explain(event: Event): string | undefined {
   const notes: string[] = [];
   if (event.kind === "marked" || event.kind === "unmarked") notes.push("No SQL ran. Only the migration record changed.");
   if (event.kind === "legacy") notes.push("Preserved from the earlier ledger, which did not distinguish running from marking.");
-  if (event.kind === "uncertain") notes.push("No confirmed outcome: it may still be running, or it was interrupted. Check the database before retrying.");
+  if (event.kind === "uncertain") notes.push("No confirmed outcome: it may still be running, or it was interrupted. Open it to see what the database says.");
   if (event.kind === "failed" && event.shared?.atomic) notes.push("The transaction was rolled back.");
   if (event.shared && !event.shared.atomic && event.kind !== "legacy") notes.push("This SQL manages its own transactions, so a failure can leave changes applied.");
   if (event.source === "browser") notes.push("Stored in this browser only.");
@@ -130,9 +146,15 @@ function EventSql({ event, schema }: { event: Event; schema: string }) {
   );
 }
 
-function TimelineRow({ event, schema }: { event: Event; schema: string }) {
+function TimelineRow({ event, settling }: { event: Event; settling: Settling }) {
   const [expanded, setExpanded] = useState(false);
   const panelId = `timeline-${event.connection.id}-${event.id}`;
+  const schema = settling.ledgerSchema;
+  const step = settling.findStep?.(event.setName ?? "", event.version) ?? null;
+  // A run's own error is bad news; a note left when it was settled by hand is not.
+  const errorTone = event.kind === "failed" || event.kind === "uncertain"
+    ? "bg-destructive/5 text-destructive"
+    : "bg-muted/30 text-muted-foreground";
   return (
     <div className="relative pl-9 before:absolute before:top-0 before:bottom-0 before:left-[11px] before:border-l last:before:bottom-6">
       <span className="absolute top-3 left-0 flex size-6 items-center justify-center rounded-full border bg-background"><KindIcon kind={event.kind} /></span>
@@ -159,7 +181,17 @@ function TimelineRow({ event, schema }: { event: Event; schema: string }) {
       </button>
       {expanded && (
         <div id={panelId} className="mb-3 overflow-hidden rounded-lg border bg-background">
-          {event.error && <pre className="max-h-48 overflow-auto border-b bg-destructive/5 p-3 font-mono text-[11px] whitespace-pre-wrap break-words text-destructive">{event.error}</pre>}
+          {event.kind === "uncertain" && event.shared && (
+            <UnconfirmedPanel
+              connection={event.connection}
+              ledgerSchema={schema}
+              event={event.shared}
+              step={step}
+              onResolved={settling.onResolved}
+              onRetry={settling.onRetry && step && event.shared.direction === "apply" ? () => settling.onRetry?.(step) : undefined}
+            />
+          )}
+          {event.error && <pre className={cn("max-h-48 overflow-auto border-b p-3 font-mono text-[11px] whitespace-pre-wrap break-words", errorTone)}>{event.error}</pre>}
           {event.shared ? <EventSql event={event} schema={schema} /> : <p className="p-3 text-xs text-muted-foreground">No saved SQL.</p>}
         </div>
       )}
@@ -171,7 +203,7 @@ function TimelineRow({ event, schema }: { event: Event; schema: string }) {
  * What has happened to these databases: the shared timeline each one keeps, plus
  * the ledger rows and browser-only records from before that timeline existed.
  */
-export function MigrationHistory({ events: fallback, connections: all, loading: ledgerLoading, ledgerSchema, setName }: Props) {
+export function MigrationHistory({ events: fallback, connections: all, loading: ledgerLoading, ledgerSchema, setName, findStep, onLedgerChange, onRetry }: Props) {
   const clearHistory = useMigrations((state) => state.clearHistory);
   const [search, setSearch] = useState("");
   const [environment, setEnvironment] = useState("all");
@@ -179,6 +211,15 @@ export function MigrationHistory({ events: fallback, connections: all, loading: 
   const connections = useMemo(() => all.filter((item) => environment === "all" || item.id === environment), [all, environment]);
   const query = useMemo<TimelineQuery>(() => ({ setName, query: search.trim(), kind: kind === "all" ? undefined : kind }), [setName, search, kind]);
   const timeline = useTimeline(connections, ledgerSchema, query);
+  const settling: Settling = {
+    ledgerSchema,
+    findStep,
+    onRetry,
+    onResolved: (outcome) => {
+      timeline.refresh();
+      if (outcome === "landed") onLedgerChange?.();
+    },
+  };
 
   const events: Event[] = [];
   for (const connection of connections) {
@@ -284,7 +325,7 @@ export function MigrationHistory({ events: fallback, connections: all, loading: 
         <div className="px-4 pb-4">
           {[...groups].map(([day, items]) => <section key={day} aria-label={day}>
             <h3 className="pt-4 pb-2 text-[11px] font-medium text-muted-foreground">{day}</h3>
-            {items.map((event) => <TimelineRow key={event.id} event={event} schema={ledgerSchema} />)}
+            {items.map((event) => <TimelineRow key={event.id} event={event} settling={settling} />)}
           </section>)}
           {timeline.hasMore && (
             <div className="flex justify-center pt-4">

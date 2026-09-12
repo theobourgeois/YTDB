@@ -1,6 +1,7 @@
 "use client";
 
-import { CheckIcon, CircleDashedIcon, SpinnerIcon, MinusIcon, NoteIcon, WarningIcon, XIcon } from "@/components/icons";
+import { CheckIcon, CircleDashedIcon, FlaskIcon, SpinnerIcon, MinusIcon, NoteIcon, WarningIcon, XIcon } from "@/components/icons";
+import { Markdown } from "@/components/markdown";
 import { ConnectionColorMark } from "@/components/connections/connection-color";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,6 +13,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { TransactionMode } from "@/lib/migrations/sql";
+import type { OutOfOrder } from "@/lib/migrations/status";
 import type { MigrationDirection, MigrationStep } from "@/lib/migrations/types";
 import type { Connection } from "@/lib/types";
 
@@ -38,7 +40,13 @@ type Props = {
   recordOnly: boolean;
   /** The author's note on how to run the migration, read before anything runs. */
   note?: string;
+  /** Steps older than something already applied on the target, which were probably merged after it ran. */
+  outOfOrder: OutOfOrder | null;
+  /** True when `progress` is from a dry run, which keeps nothing and leaves the plan open to run for real. */
+  rehearsal: boolean;
   onRun: () => void;
+  /** Null when the plan cannot be dry-run: a step manages its own transactions, or nothing runs. */
+  onRehearse: (() => void) | null;
   onStop: () => void;
   onClose: () => void;
 };
@@ -85,7 +93,10 @@ export function MigrationRunDialog({
   running,
   recordOnly,
   note,
+  outOfOrder,
+  rehearsal,
   onRun,
+  onRehearse,
   onStop,
   onClose,
 }: Props) {
@@ -102,6 +113,9 @@ export function MigrationRunDialog({
   const failed = progress?.find((item) => item.status === "failed") ?? null;
   const finished = progress !== null && !running;
   const succeeded = progress?.filter((item) => item.status === "ok").length ?? 0;
+  // A dry run settles nothing: the plan stays open to run for real, warnings and all.
+  const deciding = !progress || (rehearsal && finished);
+  const older = outOfOrder?.steps ?? [];
   const rows: RunProgress[] =
     progress ??
     steps.map((step) => ({ version: step.version, name: step.name, status: "waiting" as const }));
@@ -113,6 +127,12 @@ export function MigrationRunDialog({
           <DialogTitle>
             {count === 0 && blockedBy
               ? "Nothing here can be reverted"
+              : rehearsal && progress
+                ? running
+                  ? `Dry run of ${count} migration${count === 1 ? "" : "s"}…`
+                  : failed
+                    ? `Dry run failed at ${succeeded + 1} of ${count}`
+                    : `Dry run passed: ${count} migration${count === 1 ? "" : "s"}`
               : finished
                 ? failed
                   ? `${verb} stopped after ${succeeded} of ${count}`
@@ -128,9 +148,11 @@ export function MigrationRunDialog({
                   ? finished
                     ? "Recorded on"
                     : "Records on"
-                  : finished
-                    ? "Ran against"
-                    : "Runs against"}
+                  : rehearsal && progress
+                    ? "Tried against, without keeping anything on"
+                    : finished
+                      ? "Ran against"
+                      : "Runs against"}
               </span>
               <ConnectionColorMark connection={connection} />
               <span className="font-medium text-foreground">{connection.name}</span>
@@ -139,11 +161,11 @@ export function MigrationRunDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {!progress && note && (
-          <p className="flex max-h-40 gap-2 overflow-y-auto rounded-md border bg-muted/30 px-3 py-2 text-xs">
+        {deciding && note && (
+          <div className="flex max-h-40 gap-2 overflow-y-auto rounded-md border bg-muted/30 px-3 py-2 text-xs">
             <NoteIcon className="mt-px size-3.5 shrink-0 text-muted-foreground" />
-            <span className="min-w-0 flex-1 whitespace-pre-wrap break-words">{note}</span>
-          </p>
+            <Markdown text={note} className="min-w-0 flex-1" />
+          </div>
         )}
 
         {rows.length > 0 && (
@@ -172,7 +194,7 @@ export function MigrationRunDialog({
           </p>
         )}
 
-        {!progress && blockedBy && (
+        {deciding && blockedBy && (
           <p className="flex gap-2 text-xs text-muted-foreground">
             <WarningIcon className="mt-px size-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
             <span>
@@ -183,14 +205,27 @@ export function MigrationRunDialog({
           </p>
         )}
 
-        {!progress && recordOnly && (
+        {deciding && recordOnly && (
           <p className="rounded-md border border-amber-600/25 bg-amber-500/8 px-3 py-2 text-xs">
             <span className="font-medium">No SQL runs.</span> Only the ledger on {connection.name}{" "}
             changes.
           </p>
         )}
 
-        {!progress && !recordOnly && unwrapped.length > 0 && (
+        {deciding && !recordOnly && direction === "apply" && older.length > 0 && (
+          <p className="flex gap-2 text-xs text-muted-foreground">
+            <WarningIcon className="mt-px size-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+            <span>
+              {older.length === 1
+                ? `${older[0].version} is older than ${outOfOrder?.after}, which is already applied here.`
+                : `${older.map((step) => step.version).join(", ")} are older than ${outOfOrder?.after}, which is already applied here.`}{" "}
+              {older.length === 1 ? "It was" : "They were"} probably merged after it ran, so check{" "}
+              {older.length === 1 ? "it does" : "they do"} not depend on going first.
+            </span>
+          </p>
+        )}
+
+        {deciding && !recordOnly && unwrapped.length > 0 && (
           <p className="flex gap-2 text-xs text-muted-foreground">
             <WarningIcon className="mt-px size-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
             <span>
@@ -201,7 +236,7 @@ export function MigrationRunDialog({
           </p>
         )}
 
-        {!progress && !recordOnly && direction === "revert" && (
+        {deciding && !recordOnly && direction === "revert" && (
           <p className="text-xs text-muted-foreground">
             Reverting runs newest first and can drop data the migrations created.
           </p>
@@ -209,16 +244,32 @@ export function MigrationRunDialog({
 
         <DialogFooter>
           {running ? (
-            <Button variant="outline" onClick={onStop}>
-              Stop after this one
-            </Button>
-          ) : finished ? (
+            rehearsal ? (
+              <Button variant="outline" disabled>
+                Trying…
+              </Button>
+            ) : (
+              <Button variant="outline" onClick={onStop}>
+                Stop after this one
+              </Button>
+            )
+          ) : finished && !rehearsal ? (
             <Button onClick={onClose}>Close</Button>
           ) : (
             <>
               <Button variant="outline" onClick={onClose}>
                 {count === 0 ? "Close" : "Cancel"}
               </Button>
+              {count > 0 && onRehearse && !recordOnly && (
+                <Button
+                  variant="outline"
+                  onClick={onRehearse}
+                  title="Runs every step in one transaction and rolls it back, so you see whether it would go through without changing anything."
+                >
+                  <FlaskIcon data-icon="inline-start" />
+                  {rehearsal && finished ? "Dry run again" : "Dry run"}
+                </Button>
+              )}
               {count > 0 && (
                 <Button
                   variant={!recordOnly && direction === "revert" ? "destructive" : "default"}

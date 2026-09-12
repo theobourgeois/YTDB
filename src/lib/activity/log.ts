@@ -146,6 +146,18 @@ export function summarizeResult(
       };
     case "adopt":
       return { recorded: value?.recorded ?? 0, existing: value?.existing ?? 0 };
+    case "rehearse":
+      return {
+        steps: rowCount(value?.steps),
+        failed: (value?.failed as Record<string, unknown> | null)?.version ?? null,
+        durationMs: value?.durationMs ?? null,
+      };
+    case "reconcile":
+      return {
+        kind: (value?.event as Record<string, unknown> | undefined)?.kind ?? null,
+        running: Boolean(value?.running),
+        verdict: (value?.detection as Record<string, unknown> | null)?.verdict ?? null,
+      };
     case "detect": {
       const results = Array.isArray(value?.results) ? (value.results as Record<string, unknown>[]) : [];
       const counts: Record<string, number> = {};

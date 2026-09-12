@@ -1,6 +1,6 @@
 import "server-only";
 import type { Pool, PoolClient, QueryArrayResult } from "pg";
-import { MAX_QUERY_LENGTH, MIGRATION_STATEMENT_TIMEOUT_MS } from "../query-limits";
+import { MAX_QUERY_LENGTH, MIGRATION_LOCK_TIMEOUT_MS, MIGRATION_STATEMENT_TIMEOUT_MS } from "../query-limits";
 import { quoteIdent } from "../identifiers";
 import { planTransaction } from "../migrations/sql";
 import {
@@ -13,6 +13,8 @@ import {
   type LedgerResult,
   type MigrationRequest,
   type MigrationResult,
+  type RehearsalRequest,
+  type RehearsalResult,
 } from "../migrations/types";
 import { getPool } from "./pool";
 import { ensureTimeline, startTimelineEvent, finishTimelineEvent, successKind, readTimelinePage, readTimelineDetail } from "./migration-timeline";
@@ -204,7 +206,7 @@ const PREVIOUS_LEDGER_SCHEMAS = [DEFAULT_LEDGER_SCHEMA, "public"];
  * Only schemas this tool would itself have chosen are searched, so the answer
  * never depends on unrelated tables that happen to share the name.
  */
-async function resolveLedgerSchema(
+export async function resolveLedgerSchema(
   pool: Pool,
   configured: string,
 ): Promise<{ schema: string; exists: boolean }> {
@@ -300,6 +302,43 @@ async function ensureLedger(client: PoolClient, schema: string): Promise<void> {
 }
 
 /**
+ * A migration may take minutes, but it must never queue for a lock: a request
+ * for an exclusive lock that waits behind one long read blocks every query that
+ * arrives after it. Better to fail fast and be run again in a quieter moment.
+ */
+async function applyRunSettings(client: PoolClient): Promise<void> {
+  await client.query(`SET statement_timeout TO ${MIGRATION_STATEMENT_TIMEOUT_MS}`);
+  await client.query(`SET lock_timeout TO ${MIGRATION_LOCK_TIMEOUT_MS}`);
+}
+
+const LOCK_NOT_AVAILABLE = "55P03";
+const QUERY_CANCELED = "57014";
+
+/**
+ * The two ways a migration is cut short by its own settings, said in terms of
+ * what to do next. Anything else is the database's own message, which is
+ * usually the clearest thing to show.
+ */
+function explainRunFailure(error: unknown): Error {
+  if (typeof error !== "object" || error === null) return new Error(String(error));
+  const code = "code" in error ? String(error.code) : "";
+  const message = error instanceof Error ? error.message : String(error);
+  if (code === LOCK_NOT_AVAILABLE) {
+    return new Error(
+      `Waited ${MIGRATION_LOCK_TIMEOUT_MS / 1000} s for a lock another session is holding, then gave up ` +
+        `rather than block the queries behind it. Wait for that session to finish, or run this in a quieter moment.`,
+    );
+  }
+  if (code === QUERY_CANCELED && /statement timeout/i.test(message)) {
+    return new Error(
+      `A statement ran for over ${MIGRATION_STATEMENT_TIMEOUT_MS / 60_000} minutes and was stopped. ` +
+        `Split the migration into smaller steps, or run the slow part by hand.`,
+    );
+  }
+  return error instanceof Error ? error : new Error(message);
+}
+
+/**
  * Runs one migration and records it, both inside the same transaction, so the
  * ledger can never claim a migration that did not fully land. Files that manage
  * their own transactions run as written and are recorded straight after, which is
@@ -326,7 +365,7 @@ export async function runMigration(
   let committing = false;
 
   try {
-    await client.query(`SET statement_timeout TO ${MIGRATION_STATEMENT_TIMEOUT_MS}`);
+    await applyRunSettings(client);
     await ensureLedger(client, schema);
 
     runId = await startTimelineEvent(client, schema, request, request.recordOnly === true || plan.atomic);
@@ -358,6 +397,7 @@ export async function runMigration(
     }
   } catch (error) {
     await rollback(client);
+    const explained = explainRunFailure(error);
     if (runId) {
       // Only a database-reported error before COMMIT proves an atomic run
       // failed. A disconnected client or non-atomic run needs reconciliation.
@@ -365,16 +405,67 @@ export async function runMigration(
       const databaseError = /^[0-9A-Z]{5}$/.test(code) && !code.startsWith("08") && !/^57P0[123]$/.test(code);
       const certain = (plan.atomic || request.recordOnly) && !committing && databaseError;
       try {
-        await finishTimelineEvent(pool, schema, runId, certain ? "failed" : "uncertain", elapsed(),
-          error instanceof Error ? error.message : String(error));
+        await finishTimelineEvent(pool, schema, runId, certain ? "failed" : "uncertain", elapsed(), explained.message);
       } catch {
         // The committed start remains visible if the database is unreachable.
       }
     }
-    throw error;
+    throw explained;
   } finally {
     // A migration can change session state or leave a transaction open; destroying
     // the client keeps any of that from leaking into the next request.
+    client.release(true);
+  }
+}
+
+/**
+ * Runs migrations without keeping any of it: every step in one transaction, in
+ * order, rolled back at the end. It answers whether the SQL would run against
+ * this database's real schema, which a read of the files cannot. Only files
+ * that leave transaction control to YTDB can be tried this way; one that
+ * commits on its own would keep what it did.
+ */
+export async function rehearseMigrations(
+  connectionString: string,
+  request: RehearsalRequest,
+): Promise<RehearsalResult> {
+  if (request.steps.length === 0) throw new Error("Nothing to try");
+  const plans = request.steps.map((step) => {
+    validate({ ...step, direction: "apply", checksum: "", setName: "", ledgerSchema: DEFAULT_LEDGER_SCHEMA });
+    const plan = planTransaction(step.sql);
+    if (!plan.atomic) {
+      throw new Error(
+        `${step.version} ${step.name} manages its own transactions, so it cannot be tried without keeping what it does.`,
+      );
+    }
+    return { step, sql: plan.sql };
+  });
+
+  const pool = getPool(connectionString, "migration");
+  const client = await pool.connect();
+  client.on("error", () => {});
+  const startedAt = performance.now();
+  const elapsed = (since: number) => Math.max(0, Math.round(performance.now() - since));
+  const result: RehearsalResult = { steps: [], failed: null, durationMs: 0 };
+
+  try {
+    await applyRunSettings(client);
+    await client.query("BEGIN");
+    for (const { step, sql } of plans) {
+      const stepStartedAt = performance.now();
+      try {
+        const statements = await runSql(client, sql);
+        result.steps.push({ version: step.version, durationMs: elapsed(stepStartedAt), statements });
+      } catch (error) {
+        result.failed = { version: step.version, error: explainRunFailure(error).message };
+        break;
+      }
+    }
+    result.durationMs = elapsed(startedAt);
+    return result;
+  } finally {
+    // Nothing is kept, whichever way it went.
+    await rollback(client);
     client.release(true);
   }
 }
@@ -419,7 +510,7 @@ export async function adoptMigrations(
   const { schema } = await resolveLedgerSchema(pool, request.ledgerSchema);
   const client = await pool.connect();
   try {
-    await client.query(`SET statement_timeout TO ${MIGRATION_STATEMENT_TIMEOUT_MS}`);
+    await applyRunSettings(client);
     await ensureLedger(client, schema);
     await client.query("BEGIN");
     let recorded = 0;

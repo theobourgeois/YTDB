@@ -205,6 +205,29 @@ export type MigrationResult = {
   appliedAt: string | null;
 };
 
+/** One migration to try in a dry run: the SQL that would run, and the name to report it by. */
+export type RehearsalStep = {
+  version: string;
+  name: string;
+  sql: string;
+};
+
+export type RehearsalRequest = {
+  steps: RehearsalStep[];
+};
+
+/**
+ * What a dry run found. Every step runs in one transaction, in order, and the
+ * whole thing is rolled back at the end, so a later step sees what an earlier
+ * one made and nothing is left behind either way.
+ */
+export type RehearsalResult = {
+  steps: { version: string; durationMs: number; statements: number }[];
+  /** The step that raised an error, when one did. The ones after it were not tried. */
+  failed: { version: string; error: string } | null;
+  durationMs: number;
+};
+
 /**
  * What one database has done with one migration.
  *

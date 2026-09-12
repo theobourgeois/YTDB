@@ -21,6 +21,8 @@ export const API_ACTIONS = [
   "repo",
   "note",
   "detect",
+  "rehearse",
+  "reconcile",
 ] as const;
 
 /** Actions that only ever happen in the browser, reported by the client. */

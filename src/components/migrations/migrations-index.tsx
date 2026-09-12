@@ -121,6 +121,12 @@ export function MigrationsIndex() {
     },
   );
 
+  const findStep = useCallback(
+    (name: string, version: string) =>
+      [...repoSets, ...sets].find((set) => set.name === name)?.steps.find((step) => step.version === version) ?? null,
+    [repoSets, sets],
+  );
+
   const historyEvents = useMemo(
     () =>
       buildHistory(
@@ -390,6 +396,8 @@ export function MigrationsIndex() {
             connections={environmentConnections}
             loading={ledgers.loading}
             ledgerSchema={ledgerSchema}
+            findStep={findStep}
+            onLedgerChange={ledgers.reload}
           />
         </ScrollArea>
       ) : empty && root && repo.loading ? (

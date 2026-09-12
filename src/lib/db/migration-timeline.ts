@@ -136,6 +136,45 @@ export async function readTimelinePage(pool: Pool, schema: string, query: Timeli
   };
 }
 
+export type TimelineEventRecord = TimelineEvent & { sql: string | null; revertSql: string | null };
+
+/** One event with the SQL it ran, or null when there is no such event. */
+export async function readTimelineEvent(
+  client: Pick<PoolClient, "query">,
+  schema: string,
+  id: string,
+  lock = false,
+): Promise<TimelineEventRecord | null> {
+  const result = await client.query<EventRow & { sql: string | null; revert_sql: string | null }>(
+    `SELECT e.*, r.sql, r.revert_sql FROM ${table(schema, EVENTS)} e
+     LEFT JOIN ${table(schema, REVISIONS)} r ON r.id = e.revision_id
+     WHERE e.id = $1${lock ? " FOR UPDATE OF e" : ""}`,
+    [id],
+  );
+  const row = result.rows[0];
+  if (!row) return null;
+  return {
+    id: row.id, sequence: row.sequence, setName: row.set_name, version: row.version,
+    name: row.name, direction: row.direction, kind: row.kind,
+    startedAt: row.started_at.toISOString(), finishedAt: row.finished_at?.toISOString() ?? null,
+    durationMs: row.duration_ms, appliedBy: row.applied_by, revisionId: row.revision_id,
+    atomic: row.atomic, error: row.error, sql: row.sql, revertSql: row.revert_sql,
+  };
+}
+
+/** Settles an unconfirmed event by hand, keeping what the run itself had reported. */
+export async function closeTimelineEvent(
+  client: Pick<PoolClient, "query">,
+  schema: string,
+  id: string,
+  kind: TimelineEvent["kind"],
+  error: string | null,
+): Promise<void> {
+  await client.query(`UPDATE ${table(schema, EVENTS)}
+    SET kind = $2, error = $3, finished_at = COALESCE(finished_at, clock_timestamp())
+    WHERE id = $1 AND kind = 'uncertain'`, [id, kind, error]);
+}
+
 /** Compare with the previous successful run in the same direction, even across pages. */
 export async function readTimelineDetail(pool: Pool, schema: string, id: string): Promise<TimelineDetail> {
   const events = table(schema, EVENTS);

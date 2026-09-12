@@ -16,6 +16,13 @@ export const QUERY_STATEMENT_TIMEOUT_MS = 60_000;
 /** A migration file can rewrite a whole table, which no interactive limit should cut short. */
 export const MIGRATION_STATEMENT_TIMEOUT_MS = 600_000;
 
+/**
+ * How long a migration waits for a lock before giving up. An ALTER TABLE queued
+ * behind one long read blocks every query behind it until that read finishes,
+ * so waiting is worse than failing fast and trying again in a quieter moment.
+ */
+export const MIGRATION_LOCK_TIMEOUT_MS = 10_000;
+
 /** Keeps oversized requests and persisted drafts out of the browser and API. */
 export const MAX_QUERY_LENGTH = 500_000;
 

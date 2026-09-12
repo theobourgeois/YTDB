@@ -6,6 +6,8 @@ import type {
   MigrationRequest,
   MigrationResult,
   NoteResult,
+  RehearsalRequest,
+  RehearsalResult,
   RepoRead,
 } from "./migrations/types";
 import type {
@@ -29,7 +31,7 @@ import type {
   TableRef,
 } from "./types";
 import { bridgeFetch } from "./bridge";
-import type { TimelinePage, TimelineQuery, TimelineDetail } from "./migrations/timeline";
+import type { ReconcileReport, ResolveRequest, TimelinePage, TimelineQuery, TimelineDetail } from "./migrations/timeline";
 
 async function post<T>(path: string, body: unknown, signal?: AbortSignal): Promise<T> {
   const response = await bridgeFetch(path, {
@@ -118,6 +120,18 @@ export const api = {
 
   adopt: (connectionUrl: string, adopt: AdoptRequest, signal?: AbortSignal) =>
     post<AdoptResult>("/api/adopt", { connectionUrl, adopt }, signal),
+
+  /** Runs migrations in one transaction and rolls it back: a dry run. */
+  rehearse: (connectionUrl: string, rehearsal: RehearsalRequest, signal?: AbortSignal) =>
+    post<RehearsalResult>("/api/rehearse", { connectionUrl, rehearsal }, signal),
+
+  /** What the database says about a run with no confirmed outcome. */
+  reconcile: (connectionUrl: string, ledgerSchema: string, eventId: string, signal?: AbortSignal) =>
+    post<ReconcileReport>("/api/reconcile", { connectionUrl, ledgerSchema, eventId }, signal),
+
+  /** Settles an unconfirmed run on the word of whoever checked the database. */
+  resolve: (connectionUrl: string, ledgerSchema: string, request: ResolveRequest, signal?: AbortSignal) =>
+    post<{ resolved: true }>("/api/reconcile", { connectionUrl, ledgerSchema, ...request }, signal),
 
   /** Checks the catalog for what each migration would have left behind. */
   detect: (

@@ -18,11 +18,13 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAsync } from "@/hooks/use-async";
 import { api } from "@/lib/api";
+import { planTransaction } from "@/lib/migrations/sql";
 import {
   applyPlan,
   foreignEntries,
   ledgerEntry,
   newestApplied,
+  outOfOrderSteps,
   revertPlan,
   scopeLedger,
   selectedApplyPlan,
@@ -51,6 +53,7 @@ import { MigrationsFooter, type MigrationsPane } from "./migrations-footer";
 import { MigrationDropZone, useMigrationImport, type FolderDrop } from "./migration-import";
 import { MigrationNameDialog } from "./migration-name-dialog";
 import { MigrationNoteDialog } from "./note-dialog";
+import { Markdown } from "@/components/markdown";
 import { MigrationRow, StatusMark, type DriftSource } from "./migration-row";
 import { MigrationRunDialog, type RunProgress } from "./run-dialog";
 import { useRepo } from "./use-repo";
@@ -96,6 +99,7 @@ export function MigrationDetail({ setId }: { setId: string }) {
   const [pendingRun, setPendingRun] = useState<PendingRun | null>(null);
   const [progress, setProgress] = useState<RunProgress[] | null>(null);
   const [running, setRunning] = useState(false);
+  const [rehearsal, setRehearsal] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [lastImport, setLastImport] = useState<MergeReport | null>(null);
   const [revertFor, setRevertFor] = useState<string | null>(null);
@@ -209,6 +213,22 @@ export function MigrationDetail({ setId }: { setId: string }) {
   const foreign = useMemo(() => foreignEntries(activeSet, currentLedger), [activeSet, currentLedger]);
   const newest = newestApplied(activeSet, currentLedger);
 
+  /** Applies one migration on its own, once an unconfirmed run of it is settled. */
+  const retryStep = useCallback((step: MigrationStep) => {
+    setPane("migrations");
+    setProgress(null);
+    setRehearsal(false);
+    setPendingRun({ steps: [step], blockedBy: null, direction: "apply" });
+  }, []);
+
+  const findStep = useCallback(
+    (name: string, version: string) =>
+      activeSet && activeSet.name === name
+        ? (activeSet.steps.find((step) => step.version === version) ?? null)
+        : null,
+    [activeSet],
+  );
+
   /** Files join this migration, so a folder can arrive in pieces. */
   const onFiles = useCallback(
     (drop: FolderDrop) => {
@@ -224,7 +244,59 @@ export function MigrationDetail({ setId }: { setId: string }) {
     // A plan with nothing in it but a blocker still opens, so the dialog can say why.
     if (plan.steps.length === 0 && !plan.blockedBy) return;
     setProgress(null);
+    setRehearsal(false);
     setPendingRun({ ...plan, direction, recordOnly });
+  }
+
+  /** The SQL a step contributes to a plan in one direction; missing for a step with no revert file. */
+  function sqlFor(step: MigrationStep, direction: MigrationDirection): string | undefined {
+    return direction === "apply" ? step.applySql : step.revertSql;
+  }
+
+  /** A dry run needs every step to leave transaction control to YTDB, or the rollback would not take it all back. */
+  function canRehearse(plan: PendingRun): boolean {
+    if (plan.recordOnly || plan.steps.length === 0) return false;
+    return plan.steps.every((step) => {
+      const sql = sqlFor(step, plan.direction);
+      return Boolean(sql) && planTransaction(sql!).atomic;
+    });
+  }
+
+  /** Runs the whole plan in one transaction and rolls it back, reporting what would have happened. */
+  async function rehearse() {
+    const plan = pendingRun;
+    if (!plan || !activeSet) return;
+    setRehearsal(true);
+    setRunning(true);
+    let steps: RunProgress[] = plan.steps.map((step) => ({
+      version: step.version,
+      name: step.name,
+      status: "running",
+    }));
+    setProgress(steps);
+    try {
+      const result = await api.rehearse(connection.url, {
+        steps: plan.steps.map((step) => ({
+          version: step.version,
+          name: step.name,
+          sql: sqlFor(step, plan.direction) ?? "",
+        })),
+      });
+      const done = new Map(result.steps.map((item) => [item.version, item]));
+      steps = steps.map((item) => {
+        const ran = done.get(item.version);
+        if (ran) return { ...item, status: "ok", durationMs: ran.durationMs };
+        if (result.failed?.version === item.version) return { ...item, status: "failed", error: result.failed.error };
+        return { ...item, status: "skipped" };
+      });
+    } catch (caught) {
+      const error = caught instanceof Error ? caught.message : String(caught);
+      steps = steps.map((item, index) =>
+        index === 0 ? { ...item, status: "failed", error } : { ...item, status: "skipped" },
+      );
+    }
+    setProgress(steps);
+    setRunning(false);
   }
 
   /** Marking never runs SQL, so a missing revert file is no obstacle. */
@@ -236,12 +308,14 @@ export function MigrationDetail({ setId }: { setId: string }) {
     if (running) return;
     setPendingRun(null);
     setProgress(null);
+    setRehearsal(false);
   }
 
   async function execute() {
     const plan = pendingRun;
     if (!plan || !activeSet) return;
     stopRef.current = false;
+    setRehearsal(false);
     setRunning(true);
 
     let steps: RunProgress[] = plan.steps.map((step) => ({
@@ -621,6 +695,9 @@ export function MigrationDetail({ setId }: { setId: string }) {
               loading={ledgers.loading}
               ledgerSchema={ledgerSchema}
               setName={setName}
+              findStep={findStep}
+              onLedgerChange={ledgers.reload}
+              onRetry={retryStep}
             />
           </ScrollArea>
         ) : current?.error ? (
@@ -792,7 +869,14 @@ export function MigrationDetail({ setId }: { setId: string }) {
           running={running}
           recordOnly={pendingRun.recordOnly ?? false}
           note={activeSet.note}
+          outOfOrder={
+            pendingRun.direction === "apply" && !pendingRun.recordOnly
+              ? outOfOrderSteps(currentLedger, pendingRun.steps)
+              : null
+          }
+          rehearsal={rehearsal}
           onRun={() => void execute()}
+          onRehearse={canRehearse(pendingRun) ? () => void rehearse() : null}
           onStop={() => {
             stopRef.current = true;
           }}
@@ -846,18 +930,29 @@ function NoteBlock({
   onEdit: () => void;
 }) {
   return (
-    <button
-      type="button"
+    <div
       title={notePath ? `${notePath} · click to edit` : "Click to edit"}
-      onClick={onEdit}
-      className="group flex w-full cursor-pointer items-start gap-2 border-b px-4 py-2.5 text-left text-xs outline-none hover:bg-muted/30 focus-visible:bg-muted/30"
+      onClick={(event) => {
+        // A link in the note opens; anywhere else opens the editor.
+        if ((event.target as HTMLElement).closest("a")) return;
+        onEdit();
+      }}
+      className="group flex w-full cursor-pointer items-start gap-2 border-b px-4 py-2.5 text-left text-xs hover:bg-muted/30"
     >
       <NoteIcon className="mt-px size-3.5 shrink-0 text-muted-foreground" />
-      <span className="max-h-40 min-w-0 flex-1 overflow-y-auto whitespace-pre-wrap break-words">
-        {note}
-      </span>
-      <PencilIcon className="mt-px size-3.5 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100" />
-    </button>
+      <Markdown text={note} className="max-h-40 min-w-0 flex-1 overflow-y-auto" />
+      <button
+        type="button"
+        aria-label="Edit note"
+        onClick={(event) => {
+          event.stopPropagation();
+          onEdit();
+        }}
+        className="mt-px shrink-0 rounded-sm text-muted-foreground opacity-0 outline-none group-hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <PencilIcon className="size-3.5" />
+      </button>
+    </div>
   );
 }
 

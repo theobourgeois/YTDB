@@ -11,7 +11,7 @@ const POLICIES_SQL = `
 type PolicyRow = { schema: string; table: string; name: string };
 
 /** The database's catalog, indexed the way the evidence checks look things up. */
-async function readCatalog(connectionString: string): Promise<Catalog> {
+export async function readCatalog(connectionString: string): Promise<Catalog> {
   const pool = getPool(connectionString);
   const [snapshot, policies] = await Promise.all([
     getSchemaSnapshot(connectionString),

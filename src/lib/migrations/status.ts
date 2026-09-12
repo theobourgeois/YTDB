@@ -177,6 +177,31 @@ export function newestApplied(
   return null;
 }
 
+/**
+ * Steps in a plan that are older than something this database has already
+ * applied. The plan is still right to include them — they are pending — but
+ * such a step was usually merged after the newer one ran, and may have been
+ * written without knowing about it.
+ */
+export type OutOfOrder = {
+  steps: MigrationStep[];
+  /** The newest version already applied here, which the steps come before. */
+  after: string;
+};
+
+export function outOfOrderSteps(
+  ledger: LedgerResult | null | undefined,
+  steps: MigrationStep[],
+): OutOfOrder | null {
+  if (!ledger || ledger.entries.length === 0) return null;
+  let after = ledger.entries[0].version;
+  for (const entry of ledger.entries) {
+    if (compareVersions(entry.version, after) > 0) after = entry.version;
+  }
+  const older = steps.filter((step) => compareVersions(step.version, after) < 0);
+  return older.length > 0 ? { steps: older, after } : null;
+}
+
 export type LedgerSource = { connection: Connection; ledger: LedgerResult | null };
 
 /**
