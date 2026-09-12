@@ -1,3 +1,4 @@
+import { useSyncExternalStore } from "react";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { logUiAction } from "../activity/client";
@@ -217,6 +218,15 @@ export function useMigrationSet(setId: string): MigrationSet | null {
 
 export function useListFilter(scope: string): ListFilter {
   return useMigrations((state) => state.listFilters[scope] ?? DEFAULT_LIST_FILTER);
+}
+
+/** False until localStorage has been read, so a saved filter is not mistaken for All. */
+export function useMigrationsHydrated(): boolean {
+  return useSyncExternalStore(
+    (onStoreChange) => useMigrations.persist.onFinishHydration(onStoreChange),
+    () => useMigrations.persist.hasHydrated(),
+    () => false,
+  );
 }
 
 /**

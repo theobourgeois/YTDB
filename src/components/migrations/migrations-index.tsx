@@ -44,6 +44,7 @@ import { useSharedLayoutPartners } from "@/lib/store/explorer";
 import {
   useListFilter,
   useMigrations,
+  useMigrationsHydrated,
   useRepoRoot,
   type ListFilter,
   type ListStatusFilter,
@@ -90,6 +91,7 @@ export function MigrationsIndex() {
   const { scope, root, checkout } = useRepoRoot(connection.id);
   const setRepoRoot = useMigrations((state) => state.setRepoRoot);
   const setRepoCheckout = useMigrations((state) => state.setRepoCheckout);
+  const storeReady = useMigrationsHydrated();
   const filter = useListFilter(scope);
   const setListFilter = useMigrations((state) => state.setListFilter);
   const repo = useRepo(root, checkout);
@@ -290,7 +292,12 @@ export function MigrationsIndex() {
   const shownRepoSets = useMemo(() => repoSets.filter(passes), [repoSets, passes]);
   const shownImported = useMemo(() => ordered.filter(passes), [ordered, passes]);
   const filtering = filter.query.trim() !== "" || filter.status !== "all";
-  const hidden = repoSets.length + ordered.length - shownRepoSets.length - shownImported.length;
+  // Status filters treat unread ledgers as a match, which would flash the full
+  // list until the read finishes. Wait for it first.
+  const awaitingFilter = filter.status !== "all" && ledgers.data === undefined;
+  const hidden = awaitingFilter
+    ? 0
+    : repoSets.length + ordered.length - shownRepoSets.length - shownImported.length;
 
   function forgetImported() {
     for (const set of sets) removeSet(set.id);
@@ -400,6 +407,8 @@ export function MigrationsIndex() {
             onLedgerChange={ledgers.reload}
           />
         </ScrollArea>
+      ) : !storeReady ? (
+        <div className="min-h-0 flex-1" />
       ) : empty && root && repo.loading ? (
         <p className="px-4 py-6 text-sm text-muted-foreground">Reading {root}…</p>
       ) : empty && root ? (
@@ -434,6 +443,10 @@ export function MigrationsIndex() {
           onChange={(patch) => setListFilter(scope, patch)}
         />
         <ScrollArea className="min-h-0 flex-1">
+          {awaitingFilter ? (
+            <p className="px-4 py-6 text-sm text-muted-foreground">Reading ledgers…</p>
+          ) : (
+            <>
           {shownRepoSets.map((set) => (
             <MigrationCard
               key={set.id}
@@ -495,6 +508,8 @@ export function MigrationsIndex() {
             <div className="p-4">
               <MigrationDropZone onFiles={onFiles} compact className="w-full" />
             </div>
+          )}
+            </>
           )}
         </ScrollArea>
         </>
