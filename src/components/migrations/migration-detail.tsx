@@ -274,8 +274,10 @@ export function MigrationDetail({ setId }: { setId: string }) {
         break;
       }
       patch(index, { status: "running" });
+      const runId = crypto.randomUUID();
       try {
         const result = await api.migrate(connection.url, {
+          runId,
           direction: plan.direction,
           version: step.version,
           name: step.name,
@@ -289,6 +291,7 @@ export function MigrationDetail({ setId }: { setId: string }) {
         });
         patch(index, { status: "ok", durationMs: result.durationMs });
         recordRun({
+          runId: result.runId ?? runId,
           setId: activeSet.id,
           setName: activeSet.name,
           connectionId: connection.id,
@@ -305,6 +308,7 @@ export function MigrationDetail({ setId }: { setId: string }) {
         patch(index, { status: "failed", error });
         skipFrom(index + 1);
         recordRun({
+          runId,
           setId: activeSet.id,
           setName: activeSet.name,
           connectionId: connection.id,
@@ -615,6 +619,8 @@ export function MigrationDetail({ setId }: { setId: string }) {
               events={historyEvents}
               connections={environmentConnections}
               loading={ledgers.loading}
+              ledgerSchema={ledgerSchema}
+              setName={setName}
             />
           </ScrollArea>
         ) : current?.error ? (

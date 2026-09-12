@@ -5,6 +5,7 @@ import type { LedgerResult } from "./types";
 export type HistoryKind = "applied" | "reverted" | "marked" | "unmarked" | "failed";
 
 export type HistoryEvent = {
+  runId?: string;
   id: string;
   connectionId: string;
   connectionName: string;
@@ -62,6 +63,7 @@ export function buildHistory(
     .filter((record) => scope.has(record.connectionId))
     .map((record): HistoryEvent => ({
       id: record.id,
+      runId: record.runId,
       connectionId: record.connectionId,
       connectionName: record.connectionName,
       version: record.version,
@@ -89,7 +91,8 @@ export function buildHistory(
       const key = `${source.connection.id}:${entry.setName}:${entry.version}`;
       const seen = newestLocal.get(key);
       // Already accounted for locally, so only the role is missing from it.
-      if (seen && (seen.kind === "applied" || seen.kind === "marked")) {
+      if (seen && (seen.kind === "applied" || seen.kind === "marked") &&
+          Math.abs(seen.at - (timeOf(entry.appliedAt) + (entry.durationMs ?? 0))) < 2000) {
         seen.appliedBy = entry.appliedBy;
         continue;
       }

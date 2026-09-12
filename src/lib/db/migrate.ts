@@ -15,6 +15,8 @@ import {
   type MigrationResult,
 } from "../migrations/types";
 import { getPool } from "./pool";
+import { ensureTimeline, startTimelineEvent, finishTimelineEvent, successKind, readTimelinePage, readTimelineDetail } from "./migration-timeline";
+import type { TimelineQuery } from "../migrations/timeline";
 
 type LedgerRow = {
   version: string;
@@ -276,7 +278,11 @@ function validate(request: MigrationRequest): void {
  * brings a ledger written by an earlier version up to the current shape.
  */
 async function ensureLedger(client: PoolClient, schema: string): Promise<void> {
+  await client.query("BEGIN");
   try {
+    // Coordinate first-use setup across teammates; DDL and the legacy snapshot
+    // must either both land or both roll back.
+    await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [`ytdb:ledger:${schema}`]);
     await client.query(`CREATE SCHEMA IF NOT EXISTS ${quoteIdent(schema)}`);
     await client.query(createLedgerSql(schema));
     for (const statement of alterLedgerSql(schema)) await client.query(statement);
@@ -285,7 +291,10 @@ async function ensureLedger(client: PoolClient, schema: string): Promise<void> {
     if (columns.length !== 2 || columns[0] !== "set_name" || columns[1] !== "version") {
       for (const statement of rekeyLedgerSql(schema)) await client.query(statement);
     }
+    await ensureTimeline(client, schema);
+    await client.query("COMMIT");
   } catch (error) {
+    await rollback(client);
     explainLedgerFailure(error, schema);
   }
 }
@@ -309,34 +318,60 @@ export async function runMigration(
   const { schema } = await resolveLedgerSchema(pool, request.ledgerSchema);
   const client = await pool.connect();
   const startedAt = performance.now();
+  // pg also emits a client error after a socket loss. The query promise below
+  // handles the outcome; this listener prevents a late socket error escaping it.
+  client.on("error", () => {});
+  const elapsed = () => Math.max(0, Math.round(performance.now() - startedAt));
+  let runId: string | undefined;
+  let committing = false;
 
   try {
     await client.query(`SET statement_timeout TO ${MIGRATION_STATEMENT_TIMEOUT_MS}`);
     await ensureLedger(client, schema);
 
-    const elapsed = () => Math.max(0, Math.round(performance.now() - startedAt));
+    runId = await startTimelineEvent(client, schema, request, request.recordOnly === true || plan.atomic);
 
-    if (request.recordOnly) {
-      const appliedAt = await record(client, schema, request, 0);
-      return { version: request.version, direction: request.direction, durationMs: elapsed(), statements: 0, appliedAt };
-    }
-
-    if (!plan.atomic) {
+    if (!request.recordOnly && !plan.atomic) {
       const statements = await runSql(client, plan.sql);
+      // Close any transaction the file left open, as the old runner's destroyed
+      // connection did. Completed self-managed transactions remain committed.
+      await client.query("ROLLBACK");
+      await client.query("BEGIN");
       const appliedAt = await record(client, schema, request, elapsed());
-      return { version: request.version, direction: request.direction, durationMs: elapsed(), statements, appliedAt };
+      await finishTimelineEvent(client, schema, runId, successKind(request), elapsed());
+      committing = true;
+      await client.query("COMMIT");
+      return { runId, version: request.version, direction: request.direction, durationMs: elapsed(), statements, appliedAt };
     }
 
     await client.query("BEGIN");
     try {
-      const statements = await runSql(client, plan.sql);
+      const statements = request.recordOnly ? 0 : await runSql(client, plan.sql);
       const appliedAt = await record(client, schema, request, elapsed());
+      await finishTimelineEvent(client, schema, runId, successKind(request), elapsed());
+      committing = true;
       await client.query("COMMIT");
-      return { version: request.version, direction: request.direction, durationMs: elapsed(), statements, appliedAt };
+      return { runId, version: request.version, direction: request.direction, durationMs: elapsed(), statements, appliedAt };
     } catch (error) {
       await rollback(client);
       throw error;
     }
+  } catch (error) {
+    await rollback(client);
+    if (runId) {
+      // Only a database-reported error before COMMIT proves an atomic run
+      // failed. A disconnected client or non-atomic run needs reconciliation.
+      const code = typeof error === "object" && error !== null && "code" in error ? String(error.code) : "";
+      const databaseError = /^[0-9A-Z]{5}$/.test(code) && !code.startsWith("08") && !/^57P0[123]$/.test(code);
+      const certain = (plan.atomic || request.recordOnly) && !committing && databaseError;
+      try {
+        await finishTimelineEvent(pool, schema, runId, certain ? "failed" : "uncertain", elapsed(),
+          error instanceof Error ? error.message : String(error));
+      } catch {
+        // The committed start remains visible if the database is unreachable.
+      }
+    }
+    throw error;
   } finally {
     // A migration can change session state or leave a transaction open; destroying
     // the client keeps any of that from leaking into the next request.
@@ -399,6 +434,12 @@ export async function adoptMigrations(
           entry.revertSql ?? null,
         ]);
         recorded += result.rowCount ?? 0;
+        if (result.rowCount) {
+          const mark: MigrationRequest = { ...entry, sql: entry.applySql,
+            ledgerSchema: schema, direction: "apply", recordOnly: true };
+          const id = await startTimelineEvent(client, schema, mark, true);
+          await finishTimelineEvent(client, schema, id, "marked", 0);
+        }
       }
       await client.query("COMMIT");
     } catch (error) {
@@ -425,4 +466,16 @@ export async function initLedger(
     client.release();
   }
   return readLedger(connectionString, configured);
+}
+
+export async function readMigrationTimeline(connectionString: string, configured: string, query: TimelineQuery) {
+  const pool = getPool(connectionString);
+  const { schema } = await resolveLedgerSchema(pool, configured);
+  return readTimelinePage(pool, schema, query);
+}
+
+export async function readMigrationTimelineDetail(connectionString: string, configured: string, id: string) {
+  const pool = getPool(connectionString);
+  const { schema } = await resolveLedgerSchema(pool, configured);
+  return readTimelineDetail(pool, schema, id);
 }

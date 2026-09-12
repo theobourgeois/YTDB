@@ -9,7 +9,6 @@ export function MigrationsFooter({
   caption,
   pane,
   onPaneChange,
-  historyCount,
   migrationsLabel = "Migrations",
 }: {
   caption: string;
@@ -28,7 +27,7 @@ export function MigrationsFooter({
           onChange={onPaneChange}
           options={[
             { value: "migrations", label: migrationsLabel },
-            { value: "history", label: historyCount > 0 ? `History (${historyCount})` : "History" },
+            { value: "history", label: "Timeline" },
           ]}
         />
       </div>

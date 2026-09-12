@@ -173,6 +173,8 @@ export type LedgerResult = {
 };
 
 export type MigrationRequest = {
+  /** Identifies one attempt across the browser and the shared timeline. */
+  runId?: string;
   direction: MigrationDirection;
   version: string;
   name: string;
@@ -194,6 +196,7 @@ export type MigrationRequest = {
 };
 
 export type MigrationResult = {
+  runId: string;
   version: string;
   direction: MigrationDirection;
   durationMs: number;

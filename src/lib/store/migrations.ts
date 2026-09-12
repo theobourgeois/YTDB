@@ -19,6 +19,7 @@ const MAX_HISTORY_ITEMS = 300;
 
 /** One attempt to run one migration against one connection, successful or not. */
 export type MigrationRunRecord = {
+  runId?: string;
   id: string;
   setId: string;
   setName: string;

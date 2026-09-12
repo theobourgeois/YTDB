@@ -29,6 +29,7 @@ import type {
   TableRef,
 } from "./types";
 import { bridgeFetch } from "./bridge";
+import type { TimelinePage, TimelineQuery, TimelineDetail } from "./migrations/timeline";
 
 async function post<T>(path: string, body: unknown, signal?: AbortSignal): Promise<T> {
   const response = await bridgeFetch(path, {
@@ -67,6 +68,11 @@ async function post<T>(path: string, body: unknown, signal?: AbortSignal): Promi
 }
 
 export const api = {
+  timeline: (connectionUrl: string, ledgerSchema: string, query: TimelineQuery, signal?: AbortSignal) =>
+    post<TimelinePage>("/api/timeline", { connectionUrl, ledgerSchema, query }, signal),
+
+  timelineDetail: (connectionUrl: string, ledgerSchema: string, eventId: string, signal?: AbortSignal) =>
+    post<TimelineDetail>("/api/timeline", { connectionUrl, ledgerSchema, eventId }, signal),
   tables: (connectionUrl: string, signal?: AbortSignal) =>
     post<TableInfo[]>("/api/tables", { connectionUrl }, signal),
 

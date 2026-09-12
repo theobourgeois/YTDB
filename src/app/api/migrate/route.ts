@@ -15,7 +15,11 @@ export const POST = jsonHandler<Body>("migrate", async (body) => {
     throw new Error("migration.ledgerSchema must be a plain schema name");
   }
   const recordOnly = input.recordOnly === true;
+  if (input.runId !== undefined && (typeof input.runId !== "string" || !/^[a-zA-Z0-9_-]{1,100}$/.test(input.runId))) {
+    throw new Error("migration.runId must be a valid attempt identifier");
+  }
   return runMigration(url, {
+    runId: input.runId,
     recordOnly,
     ledgerSchema: input.ledgerSchema,
     revertSql: typeof input.revertSql === "string" ? input.revertSql : undefined,

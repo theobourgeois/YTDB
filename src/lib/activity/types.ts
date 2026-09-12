@@ -15,6 +15,7 @@ export const API_ACTIONS = [
   "definition",
   "schema",
   "ledger",
+  "timeline",
   "migrate",
   "adopt",
   "repo",

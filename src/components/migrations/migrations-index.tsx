@@ -389,6 +389,7 @@ export function MigrationsIndex() {
             events={historyEvents}
             connections={environmentConnections}
             loading={ledgers.loading}
+            ledgerSchema={ledgerSchema}
           />
         </ScrollArea>
       ) : empty && root && repo.loading ? (
