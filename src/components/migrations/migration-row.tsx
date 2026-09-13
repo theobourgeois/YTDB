@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { CheckIcon, ChevronRightIcon, ClipboardCheckIcon, ClipboardXIcon, FileUploadIcon, CopyIcon, MinusIcon, MoreIcon, TerminalIcon, WarningIcon, UndoIcon } from "@/components/icons";
 import { SqlCode, copySql } from "@/components/sql/sql-source";
 import { Button } from "@/components/ui/button";
@@ -12,10 +12,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { PaneToggle } from "@/components/ui/pane-toggle";
+import { describeChanges } from "@/lib/migrations/changes";
 import { transactionBadge, transactionNote } from "@/lib/migrations/sql";
 import type { LedgerEntry, MigrationStep, StepStatus } from "@/lib/migrations/types";
 import type { Connection } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { SchemaChangesView } from "./schema-changes";
 import { SqlDiff } from "./sql-diff";
 
 /** Width of one environment column. Shared with the table header so the two line up. */
@@ -52,7 +54,7 @@ export type DriftSource = {
   error: string | null;
 };
 
-type Pane = "apply" | "revert" | "changes";
+type Pane = "schema" | "apply" | "revert" | "changes";
 
 type Props = {
   step: MigrationStep;
@@ -152,10 +154,15 @@ export function MigrationRow({
   onToggle,
   actions,
 }: Props) {
-  // Null until a pane is picked: a drifted row opens on its changes, any other on its SQL.
+  // Null until a pane is picked: a drifted row opens on its changes, any other on what it does to the schema.
   const [picked, setPicked] = useState<Pane | null>(null);
-  const pane: Pane = picked === "changes" && !drift ? "apply" : (picked ?? (drift ? "changes" : "apply"));
+  const pane: Pane = picked === "changes" && !drift ? "schema" : (picked ?? (drift ? "changes" : "schema"));
   const sqlPane = pane === "revert" ? "revert" : "apply";
+  // Read from the SQL only while the row is open; it follows the file as it is edited.
+  const changes = useMemo(
+    () => (expanded ? describeChanges([{ version: step.version, sql: step.applySql }]) : null),
+    [expanded, step.version, step.applySql],
+  );
   const [copied, setCopied] = useState(false);
   const sql = sqlPane === "revert" ? (step.revertSql ?? "") : step.applySql;
   const badge = transactionBadge(step.transaction);
@@ -174,7 +181,7 @@ export function MigrationRow({
   }
 
   return (
-    <div className="border-b last:border-b-0">
+    <div id={`migration-${step.version}`} className="scroll-mt-2 border-b last:border-b-0">
       <div
         className={cn(
           "flex h-10 items-center transition-colors hover:bg-muted/40",
@@ -321,6 +328,7 @@ export function MigrationRow({
               onChange={setPicked}
               options={[
                 ...(drift ? [{ value: "changes" as const, label: "Changes" }] : []),
+                { value: "schema" as const, label: "Schema" },
                 { value: "apply" as const, label: "Apply" },
                 { value: "revert" as const, label: "Revert" },
               ]}
@@ -339,7 +347,7 @@ export function MigrationRow({
                 {pane === "revert" ? (step.revertPath ?? "no revert file") : step.applyPath}
               </span>
             )}
-            {pane !== "changes" && (
+            {(pane === "apply" || pane === "revert") && (
               <Button size="xs" variant="ghost" className="ml-auto" onClick={() => void copy()}>
                 {copied ? <CheckIcon data-icon="inline-start" /> : <CopyIcon data-icon="inline-start" />}
                 {copied ? "Copied" : "Copy"}
@@ -359,7 +367,9 @@ export function MigrationRow({
               ))}
             </ul>
           )}
-          {pane === "changes" && drift ? (
+          {pane === "schema" && changes ? (
+            <SchemaChangesView changes={changes} className="max-h-96 overflow-auto pb-2" />
+          ) : pane === "changes" && drift ? (
             drift.error ? (
               <p className="px-3 pb-3 font-mono text-xs text-destructive">{drift.error}</p>
             ) : drift.appliedSql === undefined ? (

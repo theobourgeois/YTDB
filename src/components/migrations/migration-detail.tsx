@@ -43,6 +43,7 @@ import {
 import { useSharedLayoutPartners, useExplorer } from "@/lib/store/explorer";
 import type { MergeReport } from "@/lib/migrations/parse";
 import { buildHistory } from "@/lib/migrations/history";
+import { describeChanges } from "@/lib/migrations/changes";
 import { useMigrationSet, useMigrations, useRepoRoot } from "@/lib/store/migrations";
 import { useQueries } from "@/lib/store/queries";
 import { cn } from "@/lib/utils";
@@ -56,6 +57,7 @@ import { MigrationNoteDialog } from "./note-dialog";
 import { Markdown } from "@/components/markdown";
 import { MigrationRow, StatusMark, type DriftSource } from "./migration-row";
 import { MigrationRunDialog, type RunProgress } from "./run-dialog";
+import { SchemaChangesView, changeCounts } from "./schema-changes";
 import { useRepo } from "./use-repo";
 
 type LedgerRead = { ledger: LedgerResult | null; error: string | null };
@@ -208,6 +210,26 @@ export function MigrationDetail({ setId }: { setId: string }) {
     );
     return all.filter((event) => event.setName === setName);
   }, [environments, runRecords, setName]);
+
+  // What every file together does to the schema, folded into its net effect.
+  const schemaChanges = useMemo(
+    () =>
+      pane === "schema" && activeSet
+        ? describeChanges(activeSet.steps.map((step) => ({ version: step.version, sql: step.applySql })))
+        : null,
+    [pane, activeSet],
+  );
+
+  /** Opens one file from the schema pane, scrolled to and expanded. */
+  const showVersion = useCallback((version: string) => {
+    setPane("migrations");
+    setExpanded((current) => (current.includes(version) ? current : [...current, version]));
+    window.requestAnimationFrame(() =>
+      window.requestAnimationFrame(() =>
+        document.getElementById(`migration-${version}`)?.scrollIntoView({ block: "start", behavior: "smooth" }),
+      ),
+    );
+  }, []);
 
   const summary = summarize(activeSet, currentLedger);
   const foreign = useMemo(() => foreignEntries(activeSet, currentLedger), [activeSet, currentLedger]);
@@ -700,6 +722,10 @@ export function MigrationDetail({ setId }: { setId: string }) {
               onRetry={retryStep}
             />
           </ScrollArea>
+        ) : pane === "schema" && schemaChanges ? (
+          <ScrollArea className="min-h-0 flex-1">
+            <SchemaChangesView changes={schemaChanges} onVersion={showVersion} className="py-2" />
+          </ScrollArea>
         ) : current?.error ? (
           <p className="flex-1 px-4 py-6 font-mono text-xs text-destructive">{current.error}</p>
         ) : (
@@ -805,7 +831,8 @@ export function MigrationDetail({ setId }: { setId: string }) {
         onPaneChange={setPane}
         historyCount={historyEvents.length}
         migrationsLabel="Files"
-        caption={statusLine({
+        showSchema
+        caption={schemaChanges ? changeCounts(schemaChanges) : statusLine({
             connectionName: connection.name,
             summary,
             initialized: currentLedger?.initialized ?? null,
