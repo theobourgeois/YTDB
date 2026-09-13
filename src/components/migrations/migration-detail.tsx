@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ClipboardCheckIcon, FolderOpenIcon, FolderUploadIcon, StackIcon, MoreIcon, NoteIcon, PencilIcon, PlayIcon, RefreshIcon, TableIcon, WarningIcon, UndoIcon } from "@/components/icons";
 import { useExplorerContext } from "@/components/explorer/explorer-provider";
 import { useGoToConnection } from "@/components/explorer/use-switch-connection";
@@ -50,7 +50,8 @@ import { cn } from "@/lib/utils";
 import { EnvironmentHeader, TargetPicker, type Environment } from "./environment-header";
 import { LedgerSchemaDialog } from "./ledger-schema-dialog";
 import { MigrationHistory } from "./migration-history";
-import { MigrationsFooter, type MigrationsPane } from "./migrations-footer";
+import { MigrationsFooter, paneOfView, viewOfPane, type MigrationsPane } from "./migrations-footer";
+import { parseRoute, routeHref } from "@/lib/routes";
 import { MigrationDropZone, useMigrationImport, type FolderDrop } from "./migration-import";
 import { MigrationNameDialog } from "./migration-name-dialog";
 import { MigrationNoteDialog } from "./note-dialog";
@@ -93,7 +94,29 @@ export function MigrationDetail({ setId }: { setId: string }) {
   const setDraft = useQueries((state) => state.setDraft);
   const goToConnection = useGoToConnection();
 
-  const [pane, setPane] = useState<MigrationsPane>("migrations");
+  // Files, schema and timeline are each a page of their own, so back and forward
+  // step between them; this view is rendered by the layout and stays mounted.
+  const route = parseRoute(usePathname());
+  const pane = paneOfView(route.kind === "migration" ? route.view : undefined);
+  const setPane = useCallback(
+    (next: MigrationsPane) => {
+      if (next === pane) return;
+      router.push(routeHref({ kind: "migration", connectionId: connection.id, setId, view: viewOfPane(next) }), {
+        scroll: false,
+      });
+    },
+    [pane, router, connection.id, setId],
+  );
+  /** A file to bring into view once the list is showing again. */
+  const scrollToRef = useRef<string | null>(null);
+  useEffect(() => {
+    const version = scrollToRef.current;
+    if (pane !== "migrations" || !version) return;
+    scrollToRef.current = null;
+    window.requestAnimationFrame(() =>
+      document.getElementById(`migration-${version}`)?.scrollIntoView({ block: "start", behavior: "smooth" }),
+    );
+  }, [pane]);
   const [expanded, setExpanded] = useState<string[]>([]);
   /** Versions picked with the rows' checkboxes; while any are, the header's actions cover only them. */
   const [selected, setSelected] = useState<string[]>([]);
@@ -221,15 +244,14 @@ export function MigrationDetail({ setId }: { setId: string }) {
   );
 
   /** Opens one file from the schema pane, scrolled to and expanded. */
-  const showVersion = useCallback((version: string) => {
-    setPane("migrations");
-    setExpanded((current) => (current.includes(version) ? current : [...current, version]));
-    window.requestAnimationFrame(() =>
-      window.requestAnimationFrame(() =>
-        document.getElementById(`migration-${version}`)?.scrollIntoView({ block: "start", behavior: "smooth" }),
-      ),
-    );
-  }, []);
+  const showVersion = useCallback(
+    (version: string) => {
+      scrollToRef.current = version;
+      setExpanded((current) => (current.includes(version) ? current : [...current, version]));
+      setPane("migrations");
+    },
+    [setPane],
+  );
 
   const summary = summarize(activeSet, currentLedger);
   const foreign = useMemo(() => foreignEntries(activeSet, currentLedger), [activeSet, currentLedger]);
@@ -241,7 +263,7 @@ export function MigrationDetail({ setId }: { setId: string }) {
     setProgress(null);
     setRehearsal(false);
     setPendingRun({ steps: [step], blockedBy: null, direction: "apply" });
-  }, []);
+  }, [setPane]);
 
   const findStep = useCallback(
     (name: string, version: string) =>
@@ -257,7 +279,7 @@ export function MigrationDetail({ setId }: { setId: string }) {
       setLastImport(addFiles(setId, drop.files));
       setPane("migrations");
     },
-    [addFiles, setId],
+    [addFiles, setId, setPane],
   );
 
   const pageImport = useMigrationImport(onFiles);

@@ -1,8 +1,18 @@
 "use client";
 
 import { PaneToggle } from "@/components/ui/pane-toggle";
+import type { MigrationView } from "@/lib/routes";
 
 export type MigrationsPane = "migrations" | "schema" | "history";
+
+/** Each pane is its own page, so back and forward step between them. */
+export function paneOfView(view: MigrationView | undefined): MigrationsPane {
+  return view === "schema" ? "schema" : view === "timeline" ? "history" : "migrations";
+}
+
+export function viewOfPane(pane: MigrationsPane): MigrationView | undefined {
+  return pane === "schema" ? "schema" : pane === "history" ? "timeline" : undefined;
+}
 
 /** The status line and pane switch shared by the migration list and one migration. */
 export function MigrationsFooter({

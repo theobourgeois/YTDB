@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { parseRoute, routeHref } from "@/lib/routes";
 import { useCallback, useMemo, useState } from "react";
 import { CaretUpDownIcon, ChevronDownIcon, ChevronRightIcon, FolderOpenIcon, MoreIcon, NoteIcon, RefreshIcon, SearchIcon, StackIcon, PlusIcon, ClipboardCheckIcon, WarningIcon, XIcon } from "@/components/icons";
 import { ConnectionColorMark } from "@/components/connections/connection-color";
@@ -78,7 +79,16 @@ export function MigrationsIndex() {
   const ledgerSchema = useMigrations((state) => state.ledgerSchema);
   const runRecords = useMigrations((state) => state.history);
   const partners = useSharedLayoutPartners(connection.id);
-  const [pane, setPane] = useState<MigrationsPane>("migrations");
+  // The timeline is its own page, so back and forward step between it and the list.
+  const route = parseRoute(usePathname());
+  const pane: MigrationsPane = route.kind === "migrations" && route.view === "timeline" ? "history" : "migrations";
+  const setPane = (next: MigrationsPane) => {
+    if (next === pane) return;
+    router.push(
+      routeHref({ kind: "migrations", connectionId: connection.id, view: next === "history" ? "timeline" : undefined }),
+      { scroll: false },
+    );
+  };
   const [restoring, setRestoring] = useState<string | null>(null);
   const [restoreError, setRestoreError] = useState<string | null>(null);
   const [naming, setNaming] = useState(false);
