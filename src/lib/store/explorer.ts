@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { dropSortWhenUnscoped } from "../table-state";
 import type { Connection, Filter, Sort, TableRef } from "../types";
 import { tableKey } from "../types";
 import { randomId } from "../utils";
@@ -185,6 +186,11 @@ export const useExplorer = create<ExplorerState>()(
         set((state) => {
           const layoutKey = tableStateKey(layoutScope(connectionId), table);
           const sessionKey = tableStateKey(connectionId, table);
+          const current = overlayTable(
+            layoutKey === sessionKey ? undefined : state.tables[layoutKey],
+            state.tables[sessionKey],
+          );
+          patch = dropSortWhenUnscoped(current, patch);
           const layoutPatch = pick(patch, TABLE_LAYOUT_KEYS);
           const sessionPatch = pick(patch, TABLE_SESSION_KEYS);
           const tables = { ...state.tables };

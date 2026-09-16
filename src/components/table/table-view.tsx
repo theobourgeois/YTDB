@@ -71,16 +71,22 @@ export function TableView({ table }: { table: TableRef }) {
 
   const appliedFilters = useDebounced(state.filters.filter(isFilterComplete), 300);
   const appliedSearch = useDebounced(state.search.trim(), 300);
+  const tableId = tableKey(table);
+  const [pinnedSortTable, setPinnedSortTable] = useState<string | null>(null);
+  const scoped = appliedFilters.length > 0 || appliedSearch.length > 0;
+  // A leftover created_at sort from a filtered view must not ride onto the
+  // unfiltered table. Pinning lets an explicit header click still sort.
+  const sort = scoped || pinnedSortTable === tableId ? state.sort : null;
   const query = useMemo(
     () => ({
       table,
       filters: appliedFilters,
       search: appliedSearch,
-      sort: state.sort,
+      sort,
       page: state.page,
       pageSize: state.pageSize,
     }),
-    [table, appliedFilters, appliedSearch, state.sort, state.page, state.pageSize],
+    [table, appliedFilters, appliedSearch, sort, state.page, state.pageSize],
   );
   const rows = useAsync(
     `${connection.url}:${JSON.stringify(query)}`,
@@ -226,8 +232,14 @@ export function TableView({ table }: { table: TableRef }) {
           table={info}
           tables={tables.data ?? []}
           connectionUrl={connection.url}
-          onFiltersChange={(filters) => setState({ filters, page: 0 })}
-          onSearchChange={(search) => setState({ search, page: 0 })}
+          onFiltersChange={(filters) => {
+            setPinnedSortTable(null);
+            setState({ filters, page: 0 });
+          }}
+          onSearchChange={(search) => {
+            setPinnedSortTable(null);
+            setState({ search, page: 0 });
+          }}
           onRefresh={() => {
             rows.reload();
             tables.reload();
@@ -261,7 +273,7 @@ export function TableView({ table }: { table: TableRef }) {
             tableKind={info?.kind ?? "view"}
             fileName={`${table.schema}-${table.name}-rows`}
             dimmed={rows.loading}
-            sort={state.sort}
+            sort={sort}
             columnWidths={state.columnWidths}
             jumpColumn={jumpColumn}
             search={appliedSearch}
@@ -274,7 +286,10 @@ export function TableView({ table }: { table: TableRef }) {
               connectionUrl: connection.url,
               onOpenTable: openTable,
             }}
-            onSortChange={(sort) => setState({ sort })}
+            onSortChange={(next) => {
+              setPinnedSortTable(tableId);
+              setState({ sort: next });
+            }}
             onColumnWidthsChange={(columnWidths) => setState({ columnWidths })}
             onTogglePin={togglePin}
             onToggleHidden={toggleHidden}
