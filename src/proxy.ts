@@ -7,9 +7,21 @@ function isTrustedUiOrigin(origin: string): boolean {
   return resolveTrustedUiOrigins().has(origin);
 }
 
+// A DNS-rebound attacker domain reaches this server under its own Host name. Answering only
+// loopback names keeps the bridge to pages served from this machine or the trusted UI.
+function isLoopbackHost(host: string | null): boolean {
+  if (!host) return false;
+  try {
+    const { hostname } = new URL(`http://${host}`);
+    return ["127.0.0.1", "localhost", "[::1]", "local.ytdb", "local.dbstudio"].includes(hostname);
+  } catch {
+    return false;
+  }
+}
+
 function corsHeaders(origin: string | null, request: NextRequest): Headers {
   const headers = new Headers({
-    "Access-Control-Allow-Headers": "Authorization, Content-Type",
+    "Access-Control-Allow-Headers": "Content-Type",
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Access-Control-Max-Age": "600",
     Vary: "Origin",
@@ -31,6 +43,10 @@ export function proxy(request: NextRequest): NextResponse {
     return NextResponse.json({ error: "Database API is local-only" }, { status: 404 });
   }
 
+  if (!isLoopbackHost(request.headers.get("host"))) {
+    return NextResponse.json({ error: "Host not allowed" }, { status: 403 });
+  }
+
   const origin = request.headers.get("origin");
   const sameOrigin = origin === request.nextUrl.origin;
   if (origin && !sameOrigin && !isTrustedUiOrigin(origin)) {
@@ -40,11 +56,6 @@ export function proxy(request: NextRequest): NextResponse {
   const headers = corsHeaders(origin, request);
   if (request.method === "OPTIONS") {
     return new NextResponse(null, { status: 204, headers });
-  }
-
-  const token = process.env.YTDB_BRIDGE_TOKEN;
-  if (token && request.headers.get("authorization") !== `Bearer ${token}`) {
-    return NextResponse.json({ error: "Invalid bridge session" }, { status: 401, headers });
   }
 
   const response = NextResponse.next();

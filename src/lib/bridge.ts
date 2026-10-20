@@ -1,10 +1,5 @@
-const BRIDGE_STORAGE_KEY = "ytdb:bridge";
+const BRIDGE_PORT_KEY = "ytdb:bridge-port";
 const DEFAULT_BRIDGE_PORT = 4371;
-
-export type BridgeConfig = {
-  origin: string;
-  token: string;
-};
 
 function isLoopbackHostname(hostname: string): boolean {
   return (
@@ -20,65 +15,41 @@ export function isHostedUi(): boolean {
   return typeof window !== "undefined" && !isLoopbackHostname(window.location.hostname);
 }
 
-function readLaunchConfig(): BridgeConfig | null {
-  if (typeof window === "undefined") return null;
-
-  const fragment = new URLSearchParams(window.location.hash.slice(1));
-  const token = fragment.get("token");
-  const rawPort = fragment.get("port");
-  if (!token) return null;
-
-  const port = rawPort ? Number(rawPort) : DEFAULT_BRIDGE_PORT;
-  if (!Number.isInteger(port) || port < 1024 || port > 65_535) return null;
-
-  const config = { origin: `http://127.0.0.1:${port}`, token };
-  window.sessionStorage.setItem(BRIDGE_STORAGE_KEY, JSON.stringify(config));
-  window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
-  return config;
+function parsePort(value: string | null): number | null {
+  const port = Number(value);
+  return value && Number.isInteger(port) && port >= 1024 && port <= 65_535 ? port : null;
 }
 
-export function getBridgeConfig(): BridgeConfig | null {
-  if (typeof window === "undefined") return null;
-
-  const launched = readLaunchConfig();
-  if (launched) return launched;
-
-  const stored = window.sessionStorage.getItem(BRIDGE_STORAGE_KEY);
-  if (!stored) return null;
-  try {
-    const config = JSON.parse(stored) as Partial<BridgeConfig>;
-    if (
-      typeof config.origin === "string" &&
-      /^http:\/\/127\.0\.0\.1:\d+$/.test(config.origin) &&
-      typeof config.token === "string" &&
-      config.token.length > 0
-    ) {
-      return config as BridgeConfig;
+/**
+ * The CLI opens `#port=N`. Remember it so a plain visit to the hosted UI later finds the
+ * same bridge; otherwise fall back to the last port seen, then the default.
+ */
+function bridgePort(): number {
+  const fragment = new URLSearchParams(window.location.hash.slice(1));
+  if (fragment.has("port")) {
+    window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
+    const launched = parsePort(fragment.get("port"));
+    if (launched) {
+      window.localStorage.setItem(BRIDGE_PORT_KEY, String(launched));
+      return launched;
     }
-  } catch {
-    // A malformed or stale bridge session should behave like a missing local process.
   }
-  window.sessionStorage.removeItem(BRIDGE_STORAGE_KEY);
-  return null;
+  return parsePort(window.localStorage.getItem(BRIDGE_PORT_KEY)) ?? DEFAULT_BRIDGE_PORT;
+}
+
+/** Where database calls go: the local bridge from the hosted UI, same-origin otherwise. */
+export function bridgeOrigin(): string | null {
+  return isHostedUi() ? `http://127.0.0.1:${bridgePort()}` : null;
 }
 
 export async function bridgeFetch(
   path: string,
   init: RequestInit = {},
 ): Promise<Response> {
-  const config = getBridgeConfig();
-  if (isHostedUi() && !config) {
-    throw new Error("Start YTDB with `npx @theobourgeois/ytdb`, then use the browser tab it opens.");
-  }
-
-  const headers = new Headers(init.headers);
-  if (config) headers.set("Authorization", `Bearer ${config.token}`);
-  const url = config ? new URL(path, config.origin) : path;
-
-  return fetch(url, {
+  const origin = bridgeOrigin();
+  return fetch(origin ? new URL(path, origin) : path, {
     ...init,
-    headers,
     // Chromium's Local Network Access model uses this hint for public → loopback requests.
-    targetAddressSpace: config ? "loopback" : undefined,
+    targetAddressSpace: origin ? "loopback" : undefined,
   } as RequestInit);
 }

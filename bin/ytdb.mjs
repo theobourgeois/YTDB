@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 
 import { spawn } from "node:child_process";
-import { randomBytes } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { homedir, platform } from "node:os";
 import { dirname, join } from "node:path";
@@ -67,12 +66,11 @@ if (!existsSync(nextBin) || !existsSync(buildId)) {
   process.exit(1);
 }
 
-const token = randomBytes(32).toString("base64url");
-const fragment = `token=${encodeURIComponent(token)}&port=${port}`;
 const localOrigin = `http://127.0.0.1:${port}`;
+// The hosted UI remembers this port, so later visits to the bare origin find the bridge.
 const browserUrl = process.argv.includes("--local")
-  ? `${localOrigin}/#${fragment}`
-  : `${hostedOrigin}/#${fragment}`;
+  ? `${localOrigin}/`
+  : `${hostedOrigin}/#port=${port}`;
 
 const child = spawn(
   process.execPath,
@@ -84,7 +82,6 @@ const child = spawn(
       NEXT_TELEMETRY_DISABLED: "1",
       // The bridge trusts whichever origin this process actually opened.
       YTDB_HOSTED_ORIGIN: hostedOrigin,
-      YTDB_BRIDGE_TOKEN: token,
       YTDB_LOG_DIR: join(homedir(), ".ytdb", "activity"),
     },
     stdio: "inherit",
@@ -105,9 +102,7 @@ for (const signal of ["SIGINT", "SIGTERM"]) {
 async function waitUntilReady() {
   for (let attempt = 0; attempt < 100 && !stopped; attempt += 1) {
     try {
-      const response = await fetch(`${localOrigin}/api/health`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await fetch(`${localOrigin}/api/health`);
       if (response.ok) return;
     } catch {
       // The server is still starting.
