@@ -1,7 +1,7 @@
 import type { TableRef } from "./types";
 
 /** A view of one migration other than its files, each its own page so back and forward reach it. */
-export type MigrationView = "schema" | "timeline";
+export type MigrationView = "schema" | "diagram" | "timeline";
 
 /** Where in the app a pathname points. */
 export type Route =
@@ -30,7 +30,7 @@ export function parseRoute(pathname: string): Route {
     }
     return { kind: "table", connectionId, table: { schema: second, name: third } };
   }
-  if (parts.length === 4 && second === "migrations" && (fourth === "schema" || fourth === "timeline")) {
+  if (parts.length === 4 && second === "migrations" && (fourth === "schema" || fourth === "diagram" || fourth === "timeline")) {
     return { kind: "migration", connectionId, setId: third, view: fourth };
   }
   return { kind: "connection", connectionId };

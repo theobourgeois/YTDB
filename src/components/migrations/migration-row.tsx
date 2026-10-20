@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CheckIcon, ChevronRightIcon, ClipboardCheckIcon, ClipboardXIcon, FileUploadIcon, CopyIcon, MinusIcon, MoreIcon, TerminalIcon, WarningIcon, UndoIcon } from "@/components/icons";
+import { CheckIcon, ChevronRightIcon, ClipboardCheckIcon, ClipboardXIcon, FileUploadIcon, CopyIcon, MinusIcon, MoreIcon, SchemaIcon, TerminalIcon, WarningIcon, UndoIcon } from "@/components/icons";
 import { SqlCode, copySql } from "@/components/sql/sql-source";
 import { Button } from "@/components/ui/button";
 import {
@@ -41,6 +41,8 @@ export type RowActions = {
   onAttachRevert: () => void;
   onRemove: () => void;
   onOpenInEditor: (sql: string) => void;
+  /** Shows the schema diagram as it stands after this file. */
+  onShowDiagram: () => void;
 };
 
 /**
@@ -346,6 +348,12 @@ export function MigrationRow({
               <span className="min-w-0 truncate font-mono text-[11px] text-muted-foreground">
                 {pane === "revert" ? (step.revertPath ?? "no revert file") : step.applyPath}
               </span>
+            )}
+            {pane === "schema" && (
+              <Button size="xs" variant="ghost" className="ml-auto" onClick={actions.onShowDiagram}>
+                <SchemaIcon data-icon="inline-start" />
+                Diagram
+              </Button>
             )}
             {(pane === "apply" || pane === "revert") && (
               <Button size="xs" variant="ghost" className="ml-auto" onClick={() => void copy()}>
