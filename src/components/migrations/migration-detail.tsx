@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -60,6 +61,11 @@ import { MigrationRow, StatusMark, type DriftSource } from "./migration-row";
 import { MigrationRunDialog, type RunProgress } from "./run-dialog";
 import { SchemaChangesView, changeCounts } from "./schema-changes";
 import { useRepo } from "./use-repo";
+
+// The layout engine is large and only the diagram needs it.
+const SchemaDiagram = dynamic(() => import("./schema-diagram").then((module) => module.SchemaDiagram), {
+  ssr: false,
+});
 
 type LedgerRead = { ledger: LedgerResult | null; error: string | null };
 
@@ -241,6 +247,16 @@ export function MigrationDetail({ setId }: { setId: string }) {
         ? describeChanges(activeSet.steps.map((step) => ({ version: step.version, sql: step.applySql })))
         : null,
     [pane, activeSet],
+  );
+
+  /** The file the diagram stands at; null shows every file together. */
+  const [diagramAt, setDiagramAt] = useState<string | null>(null);
+  const showDiagram = useCallback(
+    (version: string) => {
+      setDiagramAt(version);
+      setPane("diagram");
+    },
+    [setPane],
   );
 
   /** Opens one file from the schema pane, scrolled to and expanded. */
@@ -748,6 +764,14 @@ export function MigrationDetail({ setId }: { setId: string }) {
           <ScrollArea className="min-h-0 flex-1">
             <SchemaChangesView changes={schemaChanges} onVersion={showVersion} className="py-2" />
           </ScrollArea>
+        ) : pane === "diagram" ? (
+          <SchemaDiagram
+            steps={activeSet.steps}
+            live={tables.data ?? null}
+            at={diagramAt}
+            onAt={setDiagramAt}
+            onVersion={showVersion}
+          />
         ) : current?.error ? (
           <p className="flex-1 px-4 py-6 font-mono text-xs text-destructive">{current.error}</p>
         ) : (
@@ -824,6 +848,7 @@ export function MigrationDetail({ setId }: { setId: string }) {
                   },
                   onRemove: () => activeSet && removeStep(activeSet.id, step.version),
                   onOpenInEditor: openInEditor,
+                  onShowDiagram: () => showDiagram(step.version),
                 }}
               />
             ))}

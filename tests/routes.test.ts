@@ -8,6 +8,7 @@ test("each migration view is its own path, and reads back as the same route", ()
     ["/c/migrations/timeline", { kind: "migrations", connectionId: "c", view: "timeline" }],
     ["/c/migrations/repo%3Aapp", { kind: "migration", connectionId: "c", setId: "repo:app" }],
     ["/c/migrations/repo%3Aapp/schema", { kind: "migration", connectionId: "c", setId: "repo:app", view: "schema" }],
+    ["/c/migrations/repo%3Aapp/diagram", { kind: "migration", connectionId: "c", setId: "repo:app", view: "diagram" }],
     ["/c/migrations/repo%3Aapp/timeline", { kind: "migration", connectionId: "c", setId: "repo:app", view: "timeline" }],
     ["/c/public/users", { kind: "table", connectionId: "c", table: { schema: "public", name: "users" } }],
   ];

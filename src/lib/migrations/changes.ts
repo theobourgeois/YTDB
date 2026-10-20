@@ -49,8 +49,19 @@ export type Part = {
   from?: string;
   /** What it is or what changed, one short line: `text · not null`, `unique (email)`. */
   detail?: string;
+  /** For a foreign key, or a column declared with REFERENCES: the table it points at. */
+  ref?: Reference;
   /** Migrations this came from, in the order they touched it. */
   versions: string[];
+};
+
+/** Where a foreign key points: its own columns, and the table and columns they reference. */
+export type Reference = {
+  columns: string[];
+  schema: string;
+  table: string;
+  /** Empty when the SQL leaves them to the referenced table's primary key. */
+  targetColumns: string[];
 };
 
 export type Subject = {
@@ -510,7 +521,12 @@ function familyOf(kind: SubjectKind): Family {
 /** An aspect of a column that a later statement replaces rather than adds to. */
 type ColumnAspect = "type" | "null" | "default" | "identity" | "generated" | "collate" | "other";
 
-type Fact = { aspect: ColumnAspect | "pk" | "unique" | "ref" | "check"; text: string; constraint?: string };
+type Fact = {
+  aspect: ColumnAspect | "pk" | "unique" | "ref" | "check";
+  text: string;
+  constraint?: string;
+  ref?: Reference;
+};
 
 type WorkingPart = Omit<Part, "detail" | "versions"> & {
   detail?: string;
@@ -705,6 +721,7 @@ class Builder {
           name: part.name,
           ...(part.from !== undefined ? { from: part.from } : {}),
           ...(partDetail(part) ? { detail: partDetail(part) } : {}),
+          ...(partRef(part) ? { ref: partRef(part) } : {}),
           versions: [...part.versions],
         })),
         versions: [...subject.versions],
@@ -723,6 +740,16 @@ function partDetail(part: WorkingPart): string | undefined {
     return text || undefined;
   }
   return part.detail;
+}
+
+/**
+ * A column's REFERENCES lives among its facts, so a dropped constraint takes it
+ * along, and it follows the column through a rename.
+ */
+function partRef(part: WorkingPart): Reference | undefined {
+  if (!part.facts) return part.ref;
+  const ref = part.facts.find((fact) => fact.aspect === "ref")?.ref;
+  return ref && { ...ref, columns: [part.name] };
 }
 
 /** Things that can be looked up by name on their table: all but data, grants, settings. */
@@ -1217,13 +1244,16 @@ function columnDefinition(c: Cursor, context: Context, table: string): { name: s
       const columns = c.group();
       const actions = referentialActions(c.until(stopAfterReference), context.sql);
       if (target) {
-        const to = `${qualifiedName(resolve(context, target).schema, target.name)}${
-          columns ? `.${columnList(columns, context.sql).join(", ")}` : ""
+        const resolved = resolve(context, target);
+        const targetColumns = columns ? columnList(columns, context.sql) : [];
+        const to = `${qualifiedName(resolved.schema, target.name)}${
+          targetColumns.length > 0 ? `.${targetColumns.join(", ")}` : ""
         }`;
         facts.push({
           aspect: "ref",
           text: `→ ${to}${actions ? ` ${actions}` : ""}`,
           constraint: constraintName ?? `${table}_${name}_fkey`,
+          ref: { columns: [name], schema: resolved.schema, table: resolved.name, targetColumns },
         });
       }
     } else if (c.accept("check")) {
@@ -1295,7 +1325,7 @@ function tableConstraint(c: Cursor, context: Context, table: string): ReadConstr
   return read ? { ...read, named: c.tokens[0]?.value === "constraint" } : null;
 }
 
-type ReadConstraint = { name: string; detail: string; named: boolean };
+type ReadConstraint = { name: string; detail: string; named: boolean; ref?: Reference };
 
 /**
  * Adds a constraint read from SQL. One PostgreSQL named itself is numbered
@@ -1308,10 +1338,14 @@ function addConstraint(subject: WorkingSubject, read: ReadConstraint, version: s
       subject.parts.some((part) => part.kind === "constraint" && part.name === candidate && part.op !== "drop");
     for (let n = 1; taken(name); n += 1) name = `${read.name}${n}`;
   }
-  addPart(subject, { kind: "constraint", op: "add", name, detail: read.detail }, version);
+  addPart(subject, { kind: "constraint", op: "add", name, detail: read.detail, ref: read.ref }, version);
 }
 
-function readTableConstraint(c: Cursor, context: Context, table: string): { name: string; detail: string } | null {
+function readTableConstraint(
+  c: Cursor,
+  context: Context,
+  table: string,
+): { name: string; detail: string; ref?: Reference } | null {
   let name: string | null = null;
   if (c.accept("constraint")) name = c.name();
   const sql = context.sql;
@@ -1347,9 +1381,20 @@ function readTableConstraint(c: Cursor, context: Context, table: string): { name
         }`
       : "";
     const notValid = hasNotValid(rest) ? " · not valid" : "";
+    const resolved = target ? resolve(context, target) : null;
     return {
       name: name ?? `${table}_${cols.join("_")}_fkey`,
       detail: `(${cols.join(", ")}) → ${to}${actions ? ` ${actions}` : ""}${notValid}`,
+      ...(resolved
+        ? {
+            ref: {
+              columns: cols,
+              schema: resolved.schema,
+              table: resolved.name,
+              targetColumns: targetColumns ? columnList(targetColumns, sql) : [],
+            },
+          }
+        : {}),
     };
   }
   if (c.accept("check")) {

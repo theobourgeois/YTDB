@@ -3,15 +3,17 @@
 import { PaneToggle } from "@/components/ui/pane-toggle";
 import type { MigrationView } from "@/lib/routes";
 
-export type MigrationsPane = "migrations" | "schema" | "history";
+export type MigrationsPane = "migrations" | "schema" | "diagram" | "history";
 
 /** Each pane is its own page, so back and forward step between them. */
 export function paneOfView(view: MigrationView | undefined): MigrationsPane {
-  return view === "schema" ? "schema" : view === "timeline" ? "history" : "migrations";
+  if (view === "schema" || view === "diagram") return view;
+  return view === "timeline" ? "history" : "migrations";
 }
 
 export function viewOfPane(pane: MigrationsPane): MigrationView | undefined {
-  return pane === "schema" ? "schema" : pane === "history" ? "timeline" : undefined;
+  if (pane === "schema" || pane === "diagram") return pane;
+  return pane === "history" ? "timeline" : undefined;
 }
 
 /** The status line and pane switch shared by the migration list and one migration. */
@@ -27,7 +29,7 @@ export function MigrationsFooter({
   onPaneChange: (pane: MigrationsPane) => void;
   historyCount: number;
   migrationsLabel?: string;
-  /** Offers the pane with what the whole migration does to the schema. */
+  /** Offers the panes with what the whole migration does to the schema, as a list and as a diagram. */
   showSchema?: boolean;
 }) {
   return (
@@ -40,7 +42,12 @@ export function MigrationsFooter({
           onChange={onPaneChange}
           options={[
             { value: "migrations", label: migrationsLabel },
-            ...(showSchema ? [{ value: "schema" as const, label: "Schema" }] : []),
+            ...(showSchema
+              ? [
+                  { value: "schema" as const, label: "Schema" },
+                  { value: "diagram" as const, label: "Diagram" },
+                ]
+              : []),
             { value: "history", label: "Timeline" },
           ]}
         />

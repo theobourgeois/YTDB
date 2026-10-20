@@ -52,9 +52,9 @@ const KIND_LABEL: Record<SubjectKind, string> = {
   extension: "extension",
 };
 
-const ADDED = "text-emerald-600 dark:text-emerald-400";
-const REMOVED = "text-red-600 dark:text-red-400";
-const CHANGED = "text-amber-600 dark:text-amber-400";
+export const ADDED = "text-emerald-600 dark:text-emerald-400";
+export const REMOVED = "text-red-600 dark:text-red-400";
+export const CHANGED = "text-amber-600 dark:text-amber-400";
 
 /**
  * What a migration does to the schema, object by object: each table, function

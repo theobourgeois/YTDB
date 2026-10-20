@@ -298,3 +298,11 @@ html[data-theme="tokyo-night"] {
 @utility bg-frozen-active {
   background-color: color-mix(in oklch, var(--primary) 10%, var(--background));
 }
+/* React Flow's credit, kept, but quiet enough to sit with the rest of the diagram. */
+.react-flow .react-flow__attribution {
+  background: transparent;
+}
+.react-flow .react-flow__attribution a {
+  color: var(--muted-foreground);
+  opacity: 0.5;
+}
