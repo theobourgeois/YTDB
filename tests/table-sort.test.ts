@@ -15,12 +15,12 @@ test("clearing the last filter drops a leftover sort so it cannot scan the whole
 });
 
 test("clearing search while unfiltered also drops the sort", () => {
-  const current = { ...base, filters: [], search: "hello" };
+  const current: TableQueryScope = { ...base, filters: [], search: "hello" };
   assert.equal(dropSortWhenUnscoped(current, { search: "" }).sort, null);
 });
 
 test("removing one filter while another remains keeps the sort", () => {
-  const current = {
+  const current: TableQueryScope = {
     ...base,
     filters: [...base.filters, { id: "2", column: "platform", operator: "eq", value: "tiktok" }],
   };
@@ -29,7 +29,7 @@ test("removing one filter while another remains keeps the sort", () => {
 });
 
 test("an explicit column-header sort is left alone", () => {
-  const current = { ...base, filters: [], sort: null };
+  const current: TableQueryScope = { ...base, filters: [], sort: null };
   const sort = { column: "created_at", direction: "desc" as const };
   assert.equal(dropSortWhenUnscoped(current, { sort }).sort, sort);
 });
