@@ -3,7 +3,7 @@
 import { PaneToggle } from "@/components/ui/pane-toggle";
 import type { MigrationView } from "@/lib/routes";
 
-export type MigrationsPane = "migrations" | "schema" | "diagram" | "history";
+export type MigrationsPane = "migrations" | "schema" | "diagram" | "history" | "release";
 
 /** Each pane is its own page, so back and forward step between them. */
 export function paneOfView(view: MigrationView | undefined): MigrationsPane {
@@ -23,6 +23,7 @@ export function MigrationsFooter({
   onPaneChange,
   migrationsLabel = "Migrations",
   showSchema = false,
+  showRelease = false,
 }: {
   caption: string;
   pane: MigrationsPane;
@@ -31,6 +32,8 @@ export function MigrationsFooter({
   migrationsLabel?: string;
   /** Offers the panes with what the whole migration does to the schema, as a list and as a diagram. */
   showSchema?: boolean;
+  /** Offers the pane with what the next release ships and which migrations it needs. */
+  showRelease?: boolean;
 }) {
   return (
     <footer className="flex shrink-0 items-center gap-2 border-t px-4 py-1.5 text-xs text-muted-foreground">
@@ -48,6 +51,7 @@ export function MigrationsFooter({
                   { value: "diagram" as const, label: "Diagram" },
                 ]
               : []),
+            ...(showRelease ? [{ value: "release" as const, label: "Release" }] : []),
             { value: "history", label: "Timeline" },
           ]}
         />

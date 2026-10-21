@@ -180,6 +180,13 @@ export function summarizeResult(
       };
     case "note":
       return { notePath: value?.notePath ?? null };
+    case "release":
+      return {
+        commits: value?.commits ?? 0,
+        pullRequests: rowCount(value?.pullRequests),
+        direct: rowCount(value?.direct),
+        open: rowCount(value?.open),
+      };
     case "schema":
       return {
         relations: rowCount(value?.relations),

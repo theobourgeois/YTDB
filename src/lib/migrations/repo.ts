@@ -35,7 +35,7 @@ export function resolveRoot(input: string): string {
 }
 
 /** Files at the top of a migration's folder read as its note, in order of preference. */
-const NOTE_FILES = ["readme.md", "notes.md", "note.md", "readme.txt", "notes.txt", "note.txt"];
+export const NOTE_FILES = ["readme.md", "notes.md", "note.md", "readme.txt", "notes.txt", "note.txt"];
 
 /** Where a new note is written, when the folder has none: the first name not already taken. */
 const NEW_NOTE_FILES = ["README.md", "NOTES.md"];

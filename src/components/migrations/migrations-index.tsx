@@ -58,6 +58,7 @@ import { MigrationDropZone, type FolderDrop } from "./migration-import";
 import { MigrationNameDialog } from "./migration-name-dialog";
 import { MigrationsFooter, type MigrationsPane } from "./migrations-footer";
 import { AdoptDialog, type AdoptPlan } from "./adopt-dialog";
+import { ReleaseView } from "./release-view";
 import { RepoRootDialog } from "./repo-root-dialog";
 import { useRepo } from "./use-repo";
 
@@ -81,11 +82,16 @@ export function MigrationsIndex() {
   const partners = useSharedLayoutPartners(connection.id);
   // The timeline is its own page, so back and forward step between it and the list.
   const route = parseRoute(usePathname());
-  const pane: MigrationsPane = route.kind === "migrations" && route.view === "timeline" ? "history" : "migrations";
+  const view = route.kind === "migrations" ? route.view : undefined;
+  const pane: MigrationsPane = view === "timeline" ? "history" : view === "release" ? "release" : "migrations";
   const setPane = (next: MigrationsPane) => {
     if (next === pane) return;
     router.push(
-      routeHref({ kind: "migrations", connectionId: connection.id, view: next === "history" ? "timeline" : undefined }),
+      routeHref({
+        kind: "migrations",
+        connectionId: connection.id,
+        view: next === "history" ? "timeline" : next === "release" ? "release" : undefined,
+      }),
       { scroll: false },
     );
   };
@@ -406,7 +412,22 @@ export function MigrationsIndex() {
         </p>
       )}
 
-      {pane === "history" ? (
+      {pane === "release" ? (
+        storeReady ? (
+          <ReleaseView
+            scope={scope}
+            root={root ? (repo.data?.root ?? root) : null}
+            repoName={repoName(repo.data?.checkouts ?? [])}
+            environments={environmentConnections}
+            ledgers={ledgers.data}
+            folderSets={repo.data?.sets}
+            migrationHref={(setId) => `${base}/${encodeURIComponent(setId)}`}
+            onPickFolder={() => setEditingRoot(true)}
+          />
+        ) : (
+          <div className="min-h-0 flex-1" />
+        )
+      ) : pane === "history" ? (
         <ScrollArea className="min-h-0 flex-1">
           <MigrationHistory
             events={historyEvents}
@@ -530,6 +551,7 @@ export function MigrationsIndex() {
         pane={pane}
         onPaneChange={setPane}
         historyCount={historyEvents.length}
+        showRelease
       />
 
       {editingRoot && (
@@ -882,4 +904,10 @@ function EnvironmentPill({ environment }: { environment: CardEnvironment }) {
       </span>
     </span>
   );
+}
+
+/** The repository's name as its main checkout's folder has it; a worktree's folder is named after its branch. */
+function repoName(checkouts: RepoCheckout[]): string | null {
+  const top = checkouts.find((item) => item.main) ?? checkouts[0];
+  return top ? (top.path.split(/[\\/]/).filter(Boolean).pop() ?? null) : null;
 }

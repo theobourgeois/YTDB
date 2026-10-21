@@ -124,6 +124,22 @@ export function MigrationDetail({ setId }: { setId: string }) {
     );
   }, [pane]);
   const [expanded, setExpanded] = useState<string[]>([]);
+  // A link from elsewhere, like the release page, can point at one file with #migration-<version>.
+  const hashShownRef = useRef<string | null>(null);
+  const loadedVersions = activeSet?.steps.map((step) => step.version).join(",") ?? "";
+  useEffect(() => {
+    const match = /^#migration-(.+)$/.exec(window.location.hash);
+    const target = match ? `${setId}:${match[1]}` : null;
+    if (!match || pane !== "migrations" || hashShownRef.current === target) return;
+    const element = document.getElementById(`migration-${decodeURIComponent(match[1])}`);
+    if (!element) return;
+    hashShownRef.current = target;
+    const version = decodeURIComponent(match[1]);
+    window.requestAnimationFrame(() => {
+      setExpanded((current) => (current.includes(version) ? current : [...current, version]));
+      element.scrollIntoView({ block: "start", behavior: "smooth" });
+    });
+  }, [setId, pane, loadedVersions]);
   /** Versions picked with the rows' checkboxes; while any are, the header's actions cover only them. */
   const [selected, setSelected] = useState<string[]>([]);
   const lastPickedRef = useRef<string | null>(null);
