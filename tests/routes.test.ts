@@ -6,6 +6,7 @@ test("each migration view is its own path, and reads back as the same route", ()
   const cases: [string, Route][] = [
     ["/c/migrations", { kind: "migrations", connectionId: "c" }],
     ["/c/migrations/timeline", { kind: "migrations", connectionId: "c", view: "timeline" }],
+    ["/c/migrations/release", { kind: "migrations", connectionId: "c", view: "release" }],
     ["/c/migrations/repo%3Aapp", { kind: "migration", connectionId: "c", setId: "repo:app" }],
     ["/c/migrations/repo%3Aapp/schema", { kind: "migration", connectionId: "c", setId: "repo:app", view: "schema" }],
     ["/c/migrations/repo%3Aapp/diagram", { kind: "migration", connectionId: "c", setId: "repo:app", view: "diagram" }],

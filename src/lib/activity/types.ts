@@ -19,6 +19,10 @@ export const API_ACTIONS = [
   "migrate",
   "adopt",
   "repo",
+  "release",
+  "release.label",
+  "release.merge",
+  "release.sync",
   "note",
   "detect",
   "rehearse",
@@ -36,6 +40,7 @@ export const UI_ACTIONS = [
   "migrations.remove",
   "migrations.folder",
   "migrations.checkout",
+  "migrations.release-repo",
 ] as const;
 
 export type ApiAction = (typeof API_ACTIONS)[number];

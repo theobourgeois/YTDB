@@ -10,6 +10,7 @@ import {
   type MigrationDirection,
   type MigrationSet,
 } from "../migrations/types";
+import { DEFAULT_RELEASE_SETTINGS, type ReleaseSettings } from "../releases/types";
 import { randomId } from "../utils";
 import { useConnections } from "./connections";
 
@@ -71,6 +72,22 @@ type MigrationsState = {
    */
   repoCheckouts: Record<string, string>;
   setRepoCheckout: (scope: string, checkout: string | null) => void;
+  /**
+   * The branches the release page compares, per repository of each set of
+   * environments, keyed by `releaseKey`.
+   */
+  releaseSettings: Record<string, ReleaseSettings>;
+  setReleaseSettings: (key: string, settings: ReleaseSettings) => void;
+  /** Open pull requests picked by hand for the next release, keyed like the settings. */
+  releasePins: Record<string, number[]>;
+  toggleReleasePin: (key: string, number: number) => void;
+  /** Repositories the release page reads besides the one the migrations folder is in, by folder. */
+  releaseRepos: Record<string, string[]>;
+  addReleaseRepo: (scope: string, path: string) => void;
+  removeReleaseRepo: (scope: string, path: string) => void;
+  /** The repository the release page last showed, by folder; unset for the migrations one. */
+  releaseTabs: Record<string, string>;
+  setReleaseTab: (scope: string, path: string | null) => void;
   /** How the list is narrowed, kept per set of environments so it is still there next visit. */
   listFilters: Record<string, ListFilter>;
   setListFilter: (scope: string, patch: Partial<ListFilter>) => void;
@@ -100,6 +117,64 @@ export const useMigrations = create<MigrationsState>()(
         if (!isLedgerSchema(schema)) return;
         set({ ledgerSchema: schema });
       },
+      releaseSettings: {},
+      setReleaseSettings: (key, settings) =>
+        set((state) => ({
+          releaseSettings: {
+            ...state.releaseSettings,
+            [key]: {
+              base: settings.base.trim() || DEFAULT_RELEASE_SETTINGS.base,
+              head: settings.head.trim() || DEFAULT_RELEASE_SETTINGS.head,
+              label: settings.label.trim(),
+            },
+          },
+        })),
+      releasePins: {},
+      toggleReleasePin: (key, number) =>
+        set((state) => {
+          const current = state.releasePins[key] ?? [];
+          const next = current.includes(number)
+            ? current.filter((item) => item !== number)
+            : [...current, number];
+          return { releasePins: { ...state.releasePins, [key]: next } };
+        }),
+      releaseRepos: {},
+      addReleaseRepo: (scope, path) =>
+        set((state) => {
+          const clean = path.trim().replace(/\/+$/, "");
+          const current = state.releaseRepos[scope] ?? [];
+          if (!clean || current.includes(clean)) return { releaseTabs: { ...state.releaseTabs, [scope]: clean } };
+          logUiAction("migrations.release-repo", { added: true });
+          return {
+            releaseRepos: { ...state.releaseRepos, [scope]: [...current, clean] },
+            releaseTabs: { ...state.releaseTabs, [scope]: clean },
+          };
+        }),
+      removeReleaseRepo: (scope, path) =>
+        set((state) => {
+          const key = releaseKey(scope, path);
+          const releaseSettings = { ...state.releaseSettings };
+          const releasePins = { ...state.releasePins };
+          delete releaseSettings[key];
+          delete releasePins[key];
+          const releaseTabs = { ...state.releaseTabs };
+          if (releaseTabs[scope] === path) delete releaseTabs[scope];
+          logUiAction("migrations.release-repo", { added: false });
+          return {
+            releaseRepos: { ...state.releaseRepos, [scope]: (state.releaseRepos[scope] ?? []).filter((item) => item !== path) },
+            releaseSettings,
+            releasePins,
+            releaseTabs,
+          };
+        }),
+      releaseTabs: {},
+      setReleaseTab: (scope, path) =>
+        set((state) => {
+          const releaseTabs = { ...state.releaseTabs };
+          if (path) releaseTabs[scope] = path;
+          else delete releaseTabs[scope];
+          return { releaseTabs };
+        }),
       listFilters: {},
       setListFilter: (scope, patch) =>
         set((state) => ({
@@ -214,6 +289,29 @@ export const useMigrations = create<MigrationsState>()(
 
 export function useMigrationSet(setId: string): MigrationSet | null {
   return useMigrations((state) => state.sets.find((candidate) => candidate.id === setId) ?? null);
+}
+
+const NO_PINS: number[] = [];
+const NO_REPOS: string[] = [];
+
+/**
+ * Where one repository's release settings and picks are kept. The migrations
+ * folder's repository keeps the scope alone, as it did before others could be added.
+ */
+export function releaseKey(scope: string, repoPath: string | null): string {
+  return repoPath ? `${scope}\u0000${repoPath}` : scope;
+}
+
+export function useReleaseSettings(key: string): ReleaseSettings {
+  return useMigrations((state) => state.releaseSettings[key] ?? DEFAULT_RELEASE_SETTINGS);
+}
+
+export function useReleasePins(key: string): number[] {
+  return useMigrations((state) => state.releasePins[key] ?? NO_PINS);
+}
+
+export function useReleaseRepos(scope: string): string[] {
+  return useMigrations((state) => state.releaseRepos[scope] ?? NO_REPOS);
 }
 
 export function useListFilter(scope: string): ListFilter {

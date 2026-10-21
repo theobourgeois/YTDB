@@ -9,7 +9,7 @@ export type Route =
   | { kind: "connection"; connectionId: string }
   | { kind: "query"; connectionId: string }
   | { kind: "diff"; connectionId: string }
-  | { kind: "migrations"; connectionId: string; view?: "timeline" }
+  | { kind: "migrations"; connectionId: string; view?: "timeline" | "release" }
   | { kind: "migration"; connectionId: string; setId: string; view?: MigrationView }
   | { kind: "table"; connectionId: string; table: TableRef };
 
@@ -25,7 +25,7 @@ export function parseRoute(pathname: string): Route {
   }
   if (parts.length === 3) {
     if (second === "migrations") {
-      if (third === "timeline") return { kind: "migrations", connectionId, view: "timeline" };
+      if (third === "timeline" || third === "release") return { kind: "migrations", connectionId, view: third };
       return { kind: "migration", connectionId, setId: third };
     }
     return { kind: "table", connectionId, table: { schema: second, name: third } };

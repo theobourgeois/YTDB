@@ -30,6 +30,12 @@ import type {
   TableInfo,
   TableRef,
 } from "./types";
+import type {
+  ReleaseLabelRequest,
+  ReleasePullRequestAction,
+  ReleaseRead,
+  ReleaseRequest,
+} from "./releases/types";
 import { bridgeFetch } from "./bridge";
 import type { ReconcileReport, ResolveRequest, TimelinePage, TimelineQuery, TimelineDetail } from "./migrations/timeline";
 
@@ -143,6 +149,17 @@ export const api = {
   /** Reads a migrations folder from the machine the bridge runs on. */
   repo: (root: string, checkout: string | null, signal?: AbortSignal) =>
     post<RepoRead>("/api/repo", { root, checkout }, signal),
+
+  /** What the head branch ships that the base does not, from git and the GitHub CLI. */
+  release: (request: ReleaseRequest, signal?: AbortSignal) =>
+    post<ReleaseRead>("/api/release", request, signal),
+  releaseLabel: (request: ReleaseLabelRequest) =>
+    post<{ number: number; added: boolean }>("/api/release/label", request),
+  /** Merges an open pull request on GitHub. */
+  releaseMerge: (request: ReleasePullRequestAction) =>
+    post<{ number: number; method: string }>("/api/release/merge", request),
+  /** Brings an open pull request's branch up to date with its base on GitHub. */
+  releaseSync: (request: ReleasePullRequestAction) => post<{ number: number }>("/api/release/sync", request),
 
   /** Writes a folder migration's note beside its SQL; an empty note removes the file. */
   note: (root: string, path: string, note: string, signal?: AbortSignal) =>

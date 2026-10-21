@@ -40,7 +40,7 @@ export function useRouteLabel() {
         case "diff":
           return `Compare schema${suffix}`;
         case "migrations":
-          return `Migrations${route.view === "timeline" ? " · Timeline" : ""}${suffix}`;
+          return `Migrations${route.view === "timeline" ? " · Timeline" : route.view === "release" ? " · Release" : ""}${suffix}`;
         case "migration": {
           const name = sets.find((set) => set.id === route.setId)?.name ?? "Migration";
           const view = route.view === "schema" ? " · Schema" : route.view === "timeline" ? " · Timeline" : "";
