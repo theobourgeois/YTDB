@@ -14,6 +14,7 @@ export {
   PiArrowsClockwise as RefreshIcon,
   PiArrowsDownUp as SortIcon,
   PiArrowsLeftRight as SwapIcon,
+  PiArrowsInSimple as CollapseIcon,
   PiArrowsOutSimple as ExpandIcon,
   PiBookmarkSimple as BookmarkIcon,
   PiBookmarkSimpleFill as BookmarkFilledIcon,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CheckIcon, ChevronRightIcon, ClipboardCheckIcon, ClipboardXIcon, FileUploadIcon, CopyIcon, MinusIcon, MoreIcon, SchemaIcon, TerminalIcon, WarningIcon, UndoIcon } from "@/components/icons";
+import { CheckIcon, ChevronRightIcon, ClipboardCheckIcon, ClipboardXIcon, CollapseIcon, ExpandIcon, FileUploadIcon, CopyIcon, MinusIcon, MoreIcon, SchemaIcon, TerminalIcon, WarningIcon, UndoIcon } from "@/components/icons";
 import { SqlCode, copySql } from "@/components/sql/sql-source";
 import { Button } from "@/components/ui/button";
 import {
@@ -166,6 +166,8 @@ export function MigrationRow({
     [expanded, step.version, step.applySql],
   );
   const [copied, setCopied] = useState(false);
+  // Lifts the height cap so a long migration reads top to bottom without an inner scroll.
+  const [tall, setTall] = useState(false);
   const sql = sqlPane === "revert" ? (step.revertSql ?? "") : step.applySql;
   const badge = transactionBadge(step.transaction);
   const note = transactionNote(step.transaction);
@@ -349,18 +351,30 @@ export function MigrationRow({
                 {pane === "revert" ? (step.revertPath ?? "no revert file") : step.applyPath}
               </span>
             )}
-            {pane === "schema" && (
-              <Button size="xs" variant="ghost" className="ml-auto" onClick={actions.onShowDiagram}>
-                <SchemaIcon data-icon="inline-start" />
-                Diagram
+            <div className="ml-auto flex shrink-0 items-center gap-1">
+              {pane === "schema" && (
+                <Button size="xs" variant="ghost" onClick={actions.onShowDiagram}>
+                  <SchemaIcon data-icon="inline-start" />
+                  Diagram
+                </Button>
+              )}
+              {(pane === "apply" || pane === "revert") && (
+                <Button size="xs" variant="ghost" onClick={() => void copy()}>
+                  {copied ? <CheckIcon data-icon="inline-start" /> : <CopyIcon data-icon="inline-start" />}
+                  {copied ? "Copied" : "Copy"}
+                </Button>
+              )}
+              <Button
+                size="icon-xs"
+                variant="ghost"
+                aria-label={tall ? "Collapse" : "Expand"}
+                title={tall ? "Collapse" : "Expand"}
+                aria-pressed={tall}
+                onClick={() => setTall((value) => !value)}
+              >
+                {tall ? <CollapseIcon /> : <ExpandIcon />}
               </Button>
-            )}
-            {(pane === "apply" || pane === "revert") && (
-              <Button size="xs" variant="ghost" className="ml-auto" onClick={() => void copy()}>
-                {copied ? <CheckIcon data-icon="inline-start" /> : <CopyIcon data-icon="inline-start" />}
-                {copied ? "Copied" : "Copy"}
-              </Button>
-            )}
+            </div>
           </div>
           {notes.length > 0 && (
             <ul className="space-y-1 px-3 pb-2">
@@ -376,7 +390,7 @@ export function MigrationRow({
             </ul>
           )}
           {pane === "schema" && changes ? (
-            <SchemaChangesView changes={changes} className="max-h-96 overflow-auto pb-2" />
+            <SchemaChangesView changes={changes} className={cn("overflow-auto pb-2", !tall && "max-h-96")} />
           ) : pane === "changes" && drift ? (
             drift.error ? (
               <p className="px-3 pb-3 font-mono text-xs text-destructive">{drift.error}</p>
@@ -389,10 +403,10 @@ export function MigrationRow({
                 {drift.connectionName} did not keep the SQL it ran, so there is nothing to compare against.
               </p>
             ) : (
-              <SqlDiff before={drift.appliedSql} after={step.applySql} className="max-h-96 pb-2" />
+              <SqlDiff before={drift.appliedSql} after={step.applySql} className={cn("pb-2", !tall && "max-h-96")} />
             )
           ) : sql ? (
-            <SqlCode sql={sql} className="max-h-72 overflow-auto px-3 pb-3" />
+            <SqlCode sql={sql} className={cn("overflow-auto px-3 pb-3", !tall && "max-h-72")} />
           ) : (
             <div className="flex items-center gap-2 px-3 pb-3 text-xs text-muted-foreground">
               <span>No revert file, so this one cannot be undone from here.</span>
