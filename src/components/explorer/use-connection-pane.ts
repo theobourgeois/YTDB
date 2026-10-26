@@ -1,7 +1,8 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useBrowseState } from "@/lib/store/explorer";
+import { resumeOrder, useBrowseState } from "@/lib/store/explorer";
+import { usePreferences } from "@/lib/store/preferences";
 import { tableKey } from "@/lib/types";
 import { useExplorerContext } from "./explorer-provider";
 
@@ -14,6 +15,7 @@ export function useConnectionPane(segment: string, { nested = false } = {}) {
   const pathname = usePathname();
   const { connection, tables } = useExplorerContext();
   const [browse] = useBrowseState(connection.id);
+  const tabView = usePreferences((state) => state.tabView);
 
   const base = `/${encodeURIComponent(connection.id)}`;
   const href = `${base}/${segment}`;
@@ -21,7 +23,7 @@ export function useConnectionPane(segment: string, { nested = false } = {}) {
   const open = nested ? pathname === href || pathname.startsWith(`${href}/`) : pathname === href;
 
   function backHref(): string {
-    for (const key of browse.recentTables) {
+    for (const key of resumeOrder(browse, tabView)) {
       const table = (tables.data ?? []).find((item) => tableKey(item) === key);
       if (!table) continue;
       return `${base}/${encodeURIComponent(table.schema)}/${encodeURIComponent(table.name)}`;

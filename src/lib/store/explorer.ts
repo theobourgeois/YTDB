@@ -19,6 +19,8 @@ export type BrowseState = {
   collapsedSchemas: string[];
   pinnedTables: string[];
   recentTables: string[];
+  /** Tables open as tabs, in tab order, when tab view is on. */
+  openTabs: string[];
   sidebarWidth: number;
   sidebarCollapsed: boolean;
 };
@@ -42,6 +44,7 @@ const EMPTY_BROWSE: BrowseState = {
   collapsedSchemas: [],
   pinnedTables: [],
   recentTables: [],
+  openTabs: [],
   sidebarWidth: 256,
   sidebarCollapsed: false,
 };
@@ -64,6 +67,7 @@ const BROWSE_LAYOUT_KEYS = [
 const BROWSE_SESSION_KEYS = [
   "search",
   "recentTables",
+  "openTabs",
   "sidebarWidth",
   "sidebarCollapsed",
 ] as const satisfies readonly (keyof BrowseState)[];
@@ -241,6 +245,13 @@ export const useExplorer = create<ExplorerState>()(
     { name: STORAGE_KEY },
   ),
 );
+
+/** Tables to come back to, most recent first. With tab view on, only open tabs count. */
+export function resumeOrder(browse: BrowseState, tabView: boolean): string[] {
+  if (!tabView) return browse.recentTables;
+  const recent = browse.recentTables.filter((key) => browse.openTabs.includes(key));
+  return [...recent, ...browse.openTabs.filter((key) => !recent.includes(key))];
+}
 
 export function useBrowseState(connectionId: string) {
   const layoutKey = useConnections(

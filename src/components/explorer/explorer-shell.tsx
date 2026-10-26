@@ -7,12 +7,14 @@ import { Button } from "@/components/ui/button";
 import { useHydrated } from "@/hooks/use-hydrated";
 import { useConnection } from "@/lib/store/connections";
 import { useBrowseState } from "@/lib/store/explorer";
+import { usePreferences } from "@/lib/store/preferences";
 import { resolveConnectionColor } from "@/lib/connection-colors";
 import { ExplorerProvider } from "./explorer-provider";
 import { Sidebar } from "./sidebar";
 import { CommandPalette } from "./command-palette";
 import { GlobalShortcuts } from "./global-shortcuts";
 import { TablePalette } from "./table-palette";
+import { TableTabs } from "./table-tabs";
 
 export function ExplorerShell({
   connectionId,
@@ -24,6 +26,7 @@ export function ExplorerShell({
   const hydrated = useHydrated();
   const connection = useConnection(connectionId);
   const [browse, setBrowse] = useBrowseState(connectionId);
+  const tabView = usePreferences((state) => state.tabView);
 
   if (!hydrated) return null;
 
@@ -75,7 +78,10 @@ export function ExplorerShell({
               onCollapse={() => setBrowse({ sidebarCollapsed: true })}
             />
           )}
-          <main className="flex min-w-0 flex-1 flex-col">{children}</main>
+          <main className="flex min-w-0 flex-1 flex-col">
+            {tabView && <TableTabs />}
+            {children}
+          </main>
         </div>
       </div>
       <TablePalette />
