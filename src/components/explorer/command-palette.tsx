@@ -11,6 +11,7 @@ import {
   useExplorer,
   syncLayoutSharing,
 } from "@/lib/store/explorer";
+import { usePreferences } from "@/lib/store/preferences";
 import { useThemeStore } from "@/lib/store/theme";
 import { applyTheme, THEMES, type Theme } from "@/lib/themes";
 import { dismissPalettes, registerPaletteCloser } from "@/lib/palettes";
@@ -24,6 +25,7 @@ import { useNavigationHistory } from "./use-navigation-history";
 import { useSchemaDiff } from "./use-schema-diff";
 import { useSqlEditor } from "./use-sql-editor";
 import { useSwitchConnection } from "./use-switch-connection";
+import { useTableTabs } from "./use-table-tabs";
 
 type PaletteMode = "commands" | "themes";
 
@@ -87,6 +89,8 @@ export function CommandPalette() {
   const compare = useCompareTarget(connection.id);
   const switchConnection = useSwitchConnection();
   const history = useNavigationHistory(connection.id);
+  const tabs = useTableTabs();
+  const setTabView = usePreferences((state) => state.setTabView);
   const addConnection = useConnections((state) => state.add);
   const [browse, setBrowse] = useBrowseState(connection.id);
   const [open, setOpen] = useState(false);
@@ -231,6 +235,31 @@ export function CommandPalette() {
         },
       },
       {
+        id: "tab-view",
+        title: tabs.enabled ? "Turn Off Tab View" : "Turn On Tab View",
+        keywords: ["tabs", "tab", "view", "layout", "setting", "preferences", "toggle", "show", "hide"],
+        enabled: true,
+        run: () => setTabView(!tabs.enabled),
+      },
+      {
+        id: "close-tab",
+        title: "Close Tab",
+        keywords: ["tabs", "tab", "close"],
+        enabled: tabs.enabled && tabs.activeKey !== null,
+        run: () => {
+          if (tabs.activeKey) tabs.close(tabs.activeKey);
+        },
+      },
+      {
+        id: "close-other-tabs",
+        title: "Close Other Tabs",
+        keywords: ["tabs", "tab", "close", "others", "all"],
+        enabled: tabs.enabled && tabs.activeKey !== null && tabs.tabs.length > 1,
+        run: () => {
+          if (tabs.activeKey) tabs.closeOthers(tabs.activeKey);
+        },
+      },
+      {
         id: "copy-table",
         title: "Copy Schema.Table",
         keywords: ["copy", "name", "qualified"],
@@ -271,11 +300,13 @@ export function CommandPalette() {
     pinned,
     schemaDiff,
     setBrowse,
+    setTabView,
     sqlEditor,
     switchConnection,
     table,
     tableState?.search,
     tables,
+    tabs,
   ]);
 
   const commandRows = useMemo(() => {

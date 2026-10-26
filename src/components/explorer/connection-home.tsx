@@ -2,8 +2,9 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { useBrowseState } from "@/lib/store/explorer";
+import { resumeOrder, useBrowseState } from "@/lib/store/explorer";
 import { useNavigation } from "@/lib/store/navigation";
+import { usePreferences } from "@/lib/store/preferences";
 import { routeHref } from "@/lib/routes";
 import { SHORTCUTS } from "@/lib/shortcuts";
 import { tableKey } from "@/lib/types";
@@ -17,8 +18,9 @@ export function ConnectionHome() {
   const router = useRouter();
   const { connection, tables } = useExplorerContext();
   const [browse] = useBrowseState(connection.id);
+  const tabView = usePreferences((state) => state.tabView);
 
-  const resumeKey = browse.recentTables[0] ?? null;
+  const resumeKey = resumeOrder(browse, tabView)[0] ?? null;
   const resume = resumeKey
     ? (tables.data ?? []).find((table) => tableKey(table) === resumeKey)
     : undefined;
