@@ -386,7 +386,10 @@ export function CommandPalette() {
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
-      if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === "p") {
+      const key = event.key.toLowerCase();
+      // ⌘⇧P too, where the browser doesn't keep it for a private window.
+      const toggle = (key === "k" && !event.shiftKey) || (key === "p" && event.shiftKey);
+      if ((event.metaKey || event.ctrlKey) && toggle) {
         event.preventDefault();
         if (open) {
           if (modeRef.current === "themes") {

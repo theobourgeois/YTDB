@@ -8,7 +8,7 @@ import { THEME_INIT_SCRIPT } from "@/lib/themes";
 import "./globals.css";
 
 const sans = Geist({
-  variable: "--font-sans",
+  variable: "--font-geist-sans",
   subsets: ["latin"],
 });
 

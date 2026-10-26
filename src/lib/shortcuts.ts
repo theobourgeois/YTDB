@@ -1,6 +1,6 @@
 /** Display labels for the app's global keyboard shortcuts. */
 export const SHORTCUTS = {
-  commandPalette: "⌘⇧P",
+  commandPalette: "⌘K",
   tableSearch: "⌘P",
   columnSearch: "⌘/",
   sqlEditor: "⌘E",
